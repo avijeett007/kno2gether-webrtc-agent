@@ -1,0 +1,19 @@
+version: '3'
+services:
+  agent1:
+    build: .
+    env_file:
+      - .env.local
+    restart: always
+
+  agent2:
+    build: .
+    env_file:
+      - .env.local
+    restart: always
+
+  agent3:
+    build: .
+    env_file:
+      - .env.local
+    restart: always
