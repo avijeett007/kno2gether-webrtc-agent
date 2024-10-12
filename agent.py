@@ -21,6 +21,24 @@ class AssistantFunction(agents.llm.FunctionContext):
     """This class defines functions that the assistant will call."""
 
     @agents.llm.ai_callable(
+        description=(
+            "Called when asked or needed to evaluate something that would require vision capabilities,"
+            "for example, an image, video, or the webcam feed."
+        )
+    )
+    async def provideImage(
+        self,
+        user_msg: Annotated[
+            str,
+            agents.llm.TypeInfo(
+                description="The user message that triggered this function"
+            )
+        ],
+    ):
+        print(f"Message triggering vision capabilities: {user_msg}")
+        return None
+
+    @agents.llm.ai_callable(
         description="Called when a user wants to book an appointment. This function sends a booking link to the provided email address and name."
     )
     async def book_appointment(
