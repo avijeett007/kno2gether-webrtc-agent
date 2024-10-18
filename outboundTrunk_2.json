@@ -1,0 +1,9 @@
+{
+    "trunk": {
+      "name": "Knolabs Dental Agency Trunk",
+      "address": "****.pstn.twilio.com",
+      "numbers": ["+*****"],
+      "auth_username": "*****",
+      "auth_password": "*****"
+    }
+}

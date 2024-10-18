@@ -1,0 +1,7 @@
+{
+    "sip_trunk_id": "ST_TiR9tnDAjNMf",
+    "sip_call_to": "+******",
+    "room_name": "my-sip-room",
+    "participant_identity": "sip-test",
+    "participant_name": "Test Call"
+  }
