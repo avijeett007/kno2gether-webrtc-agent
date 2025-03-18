@@ -1,0 +1,32 @@
+# Core dependencies
+aiohttp==3.11.12
+python-dotenv==1.0.1
+
+# AutoGen dependencies - use full package name for clarity
+pyautogen[teachable]>=0.2.0
+pydantic>=2.0.0
+
+# LiveKit and its components
+livekit==0.20.0
+livekit-agents==0.12.17
+livekit-api==0.8.2
+livekit-protocol==0.8.2
+
+# LiveKit plugins
+livekit-plugins-cartesia==0.4.9
+livekit-plugins-deepgram==0.6.14
+livekit-plugins-openai==0.10.10
+livekit-plugins-silero
+livekit-plugins-turn-detector
+
+# LlamaIndex dependencies
+llama-index-core>=0.10.0
+llama-index-embeddings-openai>=0.1.5
+
+# Additional dependencies for voice processing
+torch>=2.0.0
+numpy>=1.24.0
+sounddevice>=0.4.6
+
+# OpenAI
+openai>=1.12.0 
