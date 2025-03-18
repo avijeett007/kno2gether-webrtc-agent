@@ -22,6 +22,7 @@ livekit-plugins-turn-detector
 # LlamaIndex dependencies
 llama-index-core>=0.10.0
 llama-index-embeddings-openai>=0.1.5
+llama-index-vector-stores-qdrant>=0.1.3
 
 # Additional dependencies for voice processing
 torch>=2.0.0
@@ -30,3 +31,14 @@ sounddevice>=0.4.6
 
 # OpenAI
 openai>=1.12.0 
+
+livekit-api
+requests
+livekit-plugins-rag
+aiofile
+llama-index-readers-file
+llama-index-core
+llama-index-embeddings-openai
+torch
+transformers
+llama-index-llms-openai
