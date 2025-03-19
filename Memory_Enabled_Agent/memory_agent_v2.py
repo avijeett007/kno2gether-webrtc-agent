@@ -438,6 +438,9 @@ class MemoryAgent:
         # Store last user message for processing
         self.last_user_message = ""
         
+        # Track full conversation history
+        self.conversation_history = []
+        
         logger.info("Memory agent initialized")
     
     async def before_llm_callback(self, assistant: VoicePipelineAgent, chat_ctx: llm.ChatContext):
@@ -517,48 +520,77 @@ class MemoryAgent:
         except Exception as e:
             logger.error(f"Error in before_llm_callback: {e}")
     
-    def process_user_message(self, message: str):
-        """Process a user message for memory storage"""
+    def add_user_message(self, message: str):
+        """Add a user message to the conversation history"""
         try:
-            # Store in memory
-            self.memory.add_to_memory(
-                text=message, 
-                metadata={"role": "user"}
-            )
+            # Add to conversation history
+            self.conversation_history.append({
+                "role": "user",
+                "text": message,
+                "timestamp": datetime.datetime.now().isoformat()
+            })
+            
+            # Store for context in the upcoming agent response
+            self.last_user_message = message
+            
+            logger.info(f"Added user message to conversation history: {message[:50]}...")
             
         except Exception as e:
-            logger.error(f"Error processing user message: {e}")
+            logger.error(f"Error adding user message to history: {e}")
     
-    async def process_agent_response(self, assistant_text: str):
-        """Process agent response for memory and insights"""
+    def add_agent_message(self, message: str):
+        """Add an agent message to the conversation history"""
         try:
-            # Only process if we have a user message to pair it with
-            if not self.last_user_message:
+            # Add to conversation history
+            self.conversation_history.append({
+                "role": "assistant",
+                "text": message,
+                "timestamp": datetime.datetime.now().isoformat()
+            })
+            
+            logger.info(f"Added agent message to conversation history: {message[:50]}...")
+            
+        except Exception as e:
+            logger.error(f"Error adding agent message to history: {e}")
+    
+    async def process_conversation(self):
+        """Process the entire conversation history at the end of the session"""
+        try:
+            logger.info("Processing complete conversation...")
+            
+            # Skip if no conversation happened
+            if not self.conversation_history:
+                logger.info("No conversation to process")
                 return
             
-            # Store conversation in memory
-            conversation = f"User: {self.last_user_message}\nAssistant: {assistant_text}"
+            # Format the conversation for storage and analysis
+            conversation_text = ""
+            for message in self.conversation_history:
+                prefix = "User" if message["role"] == "user" else "Assistant"
+                conversation_text += f"{prefix}: {message['text']}\n\n"
+            
+            # Store the full conversation in memory
             self.memory.add_to_memory(
-                text=conversation,
-                metadata={"type": "conversation"}
+                text=conversation_text,
+                metadata={"type": "full_conversation", 
+                         "timestamp": datetime.datetime.now().isoformat()}
             )
             
-            # Extract potential insights
-            asyncio.create_task(self._extract_insights_from_conversation(
-                user_message=self.last_user_message,
-                assistant_message=assistant_text
-            ))
+            # Extract insights and tasks using pattern matching
+            await self._extract_all_insights()
             
-            # Reset last user message
-            self.last_user_message = ""
+            # Analyze conversation with external AI (can be added later)
+            await self._analyze_conversation_with_ai()
+            
+            logger.info("Conversation processing complete")
             
         except Exception as e:
-            logger.error(f"Error processing agent response: {e}")
+            logger.error(f"Error processing conversation: {e}")
     
-    async def _extract_insights_from_conversation(self, user_message: str, assistant_message: str):
-        """Extract insights from conversation using pattern matching"""
+    async def _extract_all_insights(self):
+        """Extract insights from the entire conversation"""
         try:
-            # Simple patterns to extract insights
+            # Patterns for insights
             patterns = {
                 "preference": [r"I (?:like|love|enjoy|prefer) ([^.!?]+)", r"I don't (?:like|love|enjoy) ([^.!?]+)"],
                 "feeling": [r"I (?:feel|am feeling) ([^.!?]+)", r"I'm (?:feeling|experiencing) ([^.!?]+)"],
@@ -567,16 +599,7 @@ class MemoryAgent:
                 "belief": [r"I (?:believe|think) that ([^.!?]+)", r"I'm convinced that ([^.!?]+)"]
             }
             
-            # Extract insights from user message
-            for category, category_patterns in patterns.items():
-                for pattern in category_patterns:
-                    matches = re.finditer(pattern, user_message, re.IGNORECASE)
-                    for match in matches:
-                        insight = match.group(1).strip()
-                        if insight and len(insight) > 5:
-                            self.task_db.add_insight(insight, category)
-            
-            # Extract potential tasks from user message
+            # Task patterns
             task_patterns = [
                 r"I need to ([^.!?]+)",
                 r"I should ([^.!?]+)",
@@ -585,15 +608,116 @@ class MemoryAgent:
                 r"I plan to ([^.!?]+)"
             ]
             
-            for pattern in task_patterns:
-                matches = re.finditer(pattern, user_message, re.IGNORECASE)
-                for match in matches:
-                    task = match.group(1).strip()
-                    if task and len(task) > 5:
-                        self.task_db.add_task(task)
+            # Process all user messages
+            for message in self.conversation_history:
+                if message["role"] != "user":
+                    continue
+                
+                user_message = message["text"]
+                
+                # Extract insights
+                for category, category_patterns in patterns.items():
+                    for pattern in category_patterns:
+                        matches = re.finditer(pattern, user_message, re.IGNORECASE)
+                        for match in matches:
+                            insight = match.group(1).strip()
+                            if insight and len(insight) > 5:
+                                self.task_db.add_insight(insight, category)
+                
+                # Extract tasks
+                for pattern in task_patterns:
+                    matches = re.finditer(pattern, user_message, re.IGNORECASE)
+                    for match in matches:
+                        task = match.group(1).strip()
+                        if task and len(task) > 5:
+                            self.task_db.add_task(task)
+            
+            logger.info("Extracted insights and tasks from conversation")
             
         except Exception as e:
-            logger.error(f"Error extracting insights: {e}")
+            logger.error(f"Error extracting insights from conversation: {e}")
+    
+    async def _analyze_conversation_with_ai(self):
+        """Analyze the conversation with an external AI API call to extract deeper insights"""
+        try:
+            # Skip if no conversation happened
+            if not self.conversation_history:
+                return
+            
+            # Format the conversation for analysis
+            conversation_text = ""
+            for message in self.conversation_history:
+                prefix = "User" if message["role"] == "user" else "Assistant"
+                conversation_text += f"{prefix}: {message['text']}\n\n"
+            
+            # Call OpenAI to analyze the conversation
+            logger.info("Analyzing conversation with OpenAI...")
+            
+            try:
+                # Import OpenAI client
+                from openai import OpenAI
+                
+                # Create client
+                openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+                
+                # Call API
+                response = openai_client.chat.completions.create(
+                    model="gpt-4o-mini",  # Use the same model as the agent for consistency
+                    messages=[
+                        {"role": "system", "content": "You are an expert mental health analyzer. Analyze this mental health conversation and extract key insights about the user. Output should be JSON with these sections: 1) feelings - emotional states expressed; 2) challenges - difficulties mentioned; 3) goals - aspirations or objectives; 4) preferences - likes and dislikes; 5) beliefs - core beliefs or thoughts; 6) tasks - actionable items the user should work on."},
+                        {"role": "user", "content": conversation_text}
+                    ],
+                    response_format={"type": "json_object"}
+                )
+                
+                # Process the analysis results
+                analysis = response.choices[0].message.content
+                
+                # Parse the JSON
+                analysis_data = json.loads(analysis)
+                
+                # Store insights from analysis
+                if "feelings" in analysis_data:
+                    for feeling in analysis_data["feelings"]:
+                        self.task_db.add_insight(feeling, "feeling")
+                
+                if "challenges" in analysis_data:
+                    for challenge in analysis_data["challenges"]:
+                        self.task_db.add_insight(challenge, "challenge")
+                
+                if "goals" in analysis_data:
+                    for goal in analysis_data["goals"]:
+                        self.task_db.add_insight(goal, "goal")
+                
+                if "preferences" in analysis_data:
+                    for preference in analysis_data["preferences"]:
+                        self.task_db.add_insight(preference, "preference")
+                
+                if "beliefs" in analysis_data:
+                    for belief in analysis_data["beliefs"]:
+                        self.task_db.add_insight(belief, "belief")
+                
+                if "tasks" in analysis_data:
+                    for task in analysis_data["tasks"]:
+                        self.task_db.add_task(task)
+                
+                # Store the full analysis as a document in vector memory
+                self.memory.add_to_memory(
+                    text=json.dumps(analysis_data, indent=2),
+                    metadata={"type": "conversation_analysis", 
+                             "timestamp": datetime.datetime.now().isoformat()}
+                )
+                
+                logger.info("Successfully analyzed conversation with OpenAI")
+                
+            except ImportError:
+                logger.warning("OpenAI client not installed. Skipping AI analysis.")
+            except Exception as e:
+                logger.error(f"Error in OpenAI analysis: {e}")
+                # Continue execution even if OpenAI analysis fails
+            
+        except Exception as e:
+            logger.error(f"Error analyzing conversation with AI: {e}")
 
 def prewarm(proc: JobProcess):
     """Preload models for faster startup"""
@@ -614,7 +738,9 @@ async def entrypoint(ctx: JobContext):
         role="system",
         text=(
             "You are Sarah, a mental health coach with expertise in psychological support. "
-            "Your goal is to support users in their mental wellbeing journey. "
+            "Your goal is to support users in their mental wellbeing journey. keep it a conversation with the user. learn more about the user, their name, preferences, surroundings, feelings, challenges, goals, and beliefs and everything else that will help your in mental health assessment for the user."
+            "You can also use the user's previous conversations and can use this to personalize your responses."
+            "You can suggest tasks, goals, and other things to the user that will help them in their mental health journey. and update the task manager and memory accordingly."
             "Follow these guidelines:\n"
             "1. Be empathetic and understanding\n"
             "2. Ask open-ended questions to encourage reflection\n"
@@ -654,7 +780,7 @@ async def entrypoint(ctx: JobContext):
         before_llm_cb=memory_agent.before_llm_callback,
     )
     
-    # Set up synchronous event handlers
+    # Simpler event handlers that just record messages
     @agent.on("user_speech_committed")
     def on_user_speech_committed(msg: llm.ChatMessage):
         if isinstance(msg.content, list):
@@ -665,13 +791,13 @@ async def entrypoint(ctx: JobContext):
             content = msg.content
             
         logger.info(f"User speech committed: {content[:50]}...")
-        memory_agent.process_user_message(content)
+        memory_agent.add_user_message(content)
     
     @agent.on("agent_speech_committed")
     def on_agent_speech_committed(msg: llm.ChatMessage):
-        logger.info(f"Agent speech committed: {msg.content[:50]}...")
-        # Use asyncio.create_task to run the async function
-        asyncio.create_task(memory_agent.process_agent_response(msg.content))
+        content = msg.content
+        logger.info(f"Agent speech committed: {content[:50]}...")
+        memory_agent.add_agent_message(content)
     
     # Set up metrics collection
     usage_collector = metrics.UsageCollector()
@@ -680,10 +806,50 @@ async def entrypoint(ctx: JobContext):
         metrics.log_metrics(mtrcs)
         usage_collector.collect(mtrcs)
     
-    async def log_usage():
+    # Process conversation at end of session
+    async def end_of_session():
+        # Process conversation for insights, tasks, etc.
+        await memory_agent.process_conversation()
+        
+        # Log conversation summary
+        user_messages = [msg for msg in memory_agent.conversation_history if msg["role"] == "user"]
+        agent_messages = [msg for msg in memory_agent.conversation_history if msg["role"] == "assistant"]
+        
+        if user_messages:
+            # Calculate conversation statistics
+            conversation_duration = None
+            if len(memory_agent.conversation_history) >= 2:
+                first_msg_time = datetime.datetime.fromisoformat(memory_agent.conversation_history[0]["timestamp"])
+                last_msg_time = datetime.datetime.fromisoformat(memory_agent.conversation_history[-1]["timestamp"])
+                conversation_duration = (last_msg_time - first_msg_time).total_seconds()
+            
+            # Get insights and tasks
+            insights = memory_agent.task_db.get_insights()
+            tasks = memory_agent.task_db.get_pending_tasks()
+            
+            # Log summary
+            logger.info("=" * 50)
+            logger.info("CONVERSATION SUMMARY")
+            logger.info("=" * 50)
+            logger.info(f"Total messages: {len(memory_agent.conversation_history)}")
+            logger.info(f"User messages: {len(user_messages)}")
+            logger.info(f"Agent messages: {len(agent_messages)}")
+            
+            if conversation_duration:
+                minutes = int(conversation_duration // 60)
+                seconds = int(conversation_duration % 60)
+                logger.info(f"Conversation duration: {minutes}m {seconds}s")
+            
+            logger.info(f"Insights extracted: {len(insights)}")
+            logger.info(f"Tasks identified: {len(tasks)}")
+            logger.info("=" * 50)
+        
+        # Log usage metrics
         summary = usage_collector.get_summary()
         logger.info(f"Usage: {summary}")
-    ctx.add_shutdown_callback(log_usage)
+    
+    # Add to shutdown callbacks
+    ctx.add_shutdown_callback(end_of_session)
     
     # Start the agent
     agent.start(ctx.room, participant)
