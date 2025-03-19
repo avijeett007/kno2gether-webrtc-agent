@@ -57,6 +57,10 @@ load_dotenv()
 # Environment settings
 MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
 
+# Room validation settings
+ROOM_SUFFIX = "-knomind"
+ROOM_VALIDATION_ERROR = "Room name does not match required pattern"
+
 # Memory settings
 MEMORY_DIR = "./data/memory"
 TASK_DB_PATH = "./data/tasks.db"
@@ -725,56 +729,100 @@ def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
     logger.info("Prewarmed models loaded")
 
+def validate_room_name(room_name: str) -> bool:
+    """Validate that the room name ends with the required suffix"""
+    return room_name.endswith(ROOM_SUFFIX)
+
 async def entrypoint(ctx: JobContext):
     """Main entry point for the LiveKit agent"""
     logger.info(f"Connecting to room {ctx.room.name}")
+    
+    # Validate room name
+    if not validate_room_name(ctx.room.name):
+        logger.warning(f"Room name '{ctx.room.name}' does not have the required suffix '{ROOM_SUFFIX}'")
+        # Continue anyway as this is just for personalization
+    
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
     
     # Initialize memory agent
     memory_agent = MemoryAgent()
     
-    # Create initial chat context
-    initial_ctx = llm.ChatContext().append(
-        role="system",
-        text=(
-            "You are Sarah, a mental health coach with expertise in psychological support. "
-            "Your goal is to support users in their mental wellbeing journey. keep it a conversation with the user."
-            "Start with knowing the name, if you are not aware and then proceed with the conversation. ACT LIKE A MENTAL HEALTH COACH."
-            "If you are already aware of the user's name, or tasks, or issues or anything else, just start the conversation from there and make it a conversation with the user."
-            "learn more about the user, their name, preferences, surroundings, feelings, challenges, goals, and beliefs and everything else that will help your in mental health assessment for the user."
-            "You can also use the user's previous conversations and can use this to personalize your responses."
-            "You can suggest tasks, goals, and other things to the user that will help them in their mental health journey. and update the task manager and memory accordingly."
-
-            "Voice Optimized Communication:\n"
-            "- Use short, clear sentences\n"
-            "- Add natural pauses with '...'\n"
-            "- Use verbal backchanneling ('mm-hmm', 'I see', 'right', 'got it')\n"
-            "- Keep responses concise and conversational\n"
-
-            "Follow these guidelines:\n"
-            "1. Be empathetic and understanding\n"
-            "2. Ask open-ended questions to encourage reflection\n"
-            "3. Offer practical suggestions when appropriate\n"
-            "4. Acknowledge and validate feelings\n"
-            "5. Maintain a positive and supportive tone\n"
-            "6. Reference past conversations when relevant\n"
-            "7. Help users track their mental health goals\n"
-            "8. Encourage healthy habits and coping strategies\n\n"
-            "Most Imporantly, support speech normalization and generate response for voice output. Avoid using emojis and other non-text based responses."
-            "You have access to the user's previous conversations and can use this to personalize your responses."
-
-            "Remember: \n"
-            "- Keep the conversation naturally flowing\n"
-            "- Use the user's name occasionally\n"
-            "- Never mention the background processing\n"
-            "- Listen for behavioral patterns and adapt follow-up questions\n"
-            "- Adapt questions based on responses received\n"
-        ),
-    )
-    
     # Wait for the first participant to connect
     participant = await ctx.wait_for_participant()
     logger.info(f"Starting memory-enabled mental health coach for participant {participant.identity}")
+    
+    # Get participant metadata
+    user_name = ""
+    user_goal = ""
+    metadata = participant.metadata
+    if metadata:
+        try:
+            user_data = json.loads(metadata)
+            logger.info(f"Parsed user data: {user_data}")
+            user_name = user_data.get('name', '')
+            user_goal = user_data.get('goal', '')
+            
+            # Add user info as an insight if available
+            if user_name:
+                memory_agent.task_db.add_insight(f"User's name is {user_name}", "identity")
+            if user_goal:
+                memory_agent.task_db.add_insight(f"User's goal: {user_goal}", "goal")
+                memory_agent.task_db.add_task(user_goal)
+        except json.JSONDecodeError:
+            logger.error("Failed to parse participant metadata")
+    
+    # Create initial chat context with personalized system prompt
+    system_prompt = (
+        f"You are Sarah, a mental health coach with expertise in psychological support. "
+        f"Your goal is to support users in their mental wellbeing journey. keep it a conversation with the user."
+    )
+    
+    # Add personalization if user data is available
+    if user_name:
+        system_prompt += f" You're speaking with {user_name}."
+    if user_goal:
+        system_prompt += f" {user_name if user_name else 'The user'}'s stated goal is: {user_goal}."
+    
+    system_prompt += (
+        f"\n\nIf you are already aware of the user's name, or tasks, or issues or anything else, "
+        f"just start the conversation from there and make it a conversation with the user."
+        f"learn more about the user, their name, preferences, surroundings, feelings, challenges, goals, and beliefs "
+        f"and everything else that will help your in mental health assessment for the user."
+        f"You can also use the user's previous conversations and can use this to personalize your responses."
+        f"You can suggest tasks, goals, and other things to the user that will help them in their mental health journey. "
+        f"and update the task manager and memory accordingly."
+
+        f"\n\nVoice Optimized Communication:\n"
+        f"- Use short, clear sentences\n"
+        f"- Add natural pauses with '...'\n"
+        f"- Use verbal backchanneling ('mm-hmm', 'I see', 'right', 'got it')\n"
+        f"- Keep responses concise and conversational\n"
+
+        f"\nFollow these guidelines:\n"
+        f"1. Be empathetic and understanding\n"
+        f"2. Ask open-ended questions to encourage reflection\n"
+        f"3. Offer practical suggestions when appropriate\n"
+        f"4. Acknowledge and validate feelings\n"
+        f"5. Maintain a positive and supportive tone\n"
+        f"6. Reference past conversations when relevant\n"
+        f"7. Help users track their mental health goals\n"
+        f"8. Encourage healthy habits and coping strategies\n\n"
+        f"Most Imporantly, support speech normalization and generate response for voice output. "
+        f"Avoid using emojis and other non-text based responses."
+        f"You have access to the user's previous conversations and can use this to personalize your responses."
+
+        f"\n\nRemember: \n"
+        f"- Keep the conversation naturally flowing\n"
+        f"- Use the user's name occasionally\n"
+        f"- Never mention the background processing\n"
+        f"- Listen for behavioral patterns and adapt follow-up questions\n"
+        f"- Adapt questions based on responses received\n"
+    )
+    
+    initial_ctx = llm.ChatContext().append(
+        role="system",
+        text=system_prompt,
+    )
     
     # Create the voice pipeline agent
     agent = VoicePipelineAgent(
@@ -872,15 +920,27 @@ async def entrypoint(ctx: JobContext):
     # Start the agent
     agent.start(ctx.room, participant)
     
-    # Create welcome message based on any existing memory
+    # Create welcome message based on any existing memory and user data
     pending_tasks = memory_agent.task_db.get_pending_tasks()
     insights = memory_agent.task_db.get_insights()
     
+    # Default welcome message
     welcome_message = "Hello! I'm Sarah, your mental health coach. How are you feeling today?"
     
+    # Personalize based on user data from metadata
+    if user_name:
+        welcome_message = f"Hello {user_name}! I'm Sarah, your mental health coach. How are you feeling today?"
+    
+    # Further personalize if we have previous interaction data
     if pending_tasks or insights:
-        # We have previous interaction data, create a more personalized greeting
-        welcome_message = "Welcome back! I'm Sarah, your mental health coach. How have you been since our last conversation?"
+        if user_name:
+            welcome_message = f"Welcome back, {user_name}! I'm Sarah, your mental health coach. How have you been since our last conversation?"
+        else:
+            welcome_message = "Welcome back! I'm Sarah, your mental health coach. How have you been since our last conversation?"
+    
+    # Mention the goal if it was provided in metadata
+    if user_goal and not (pending_tasks or insights):
+        welcome_message += f" I understand your goal is to {user_goal}. Let's work on that together."
     
     # Send welcome message
     await agent.say(welcome_message, allow_interruptions=True)
