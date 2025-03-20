@@ -924,23 +924,39 @@ async def entrypoint(ctx: JobContext):
     pending_tasks = memory_agent.task_db.get_pending_tasks()
     insights = memory_agent.task_db.get_insights()
     
-    # Default welcome message
+    # Track if this is a first-time user or returning user
+    # If we only have the insights/tasks we just added from metadata, it's a first-time user
+    is_first_time = True
+    
+    # Check if we have more insights than just the ones we added from metadata
+    metadata_insight_count = 0
+    if user_name:
+        metadata_insight_count += 1  # We added name as insight
+    if user_goal:
+        metadata_insight_count += 1  # We added goal as insight
+        # We also added goal as a task, so count that too
+    
+    # If we have more insights or tasks than we just added, it's a returning user
+    if len(insights) > metadata_insight_count or len(pending_tasks) > (1 if user_goal else 0):
+        is_first_time = False
+    
+    # Default welcome message for first time user
     welcome_message = "Hello! I'm Sarah, your mental health coach. How are you feeling today?"
     
     # Personalize based on user data from metadata
-    if user_name:
+    if user_name and is_first_time:
         welcome_message = f"Hello {user_name}! I'm Sarah, your mental health coach. How are you feeling today?"
     
-    # Further personalize if we have previous interaction data
-    if pending_tasks or insights:
+    # Only show goal in first message for first-time users
+    if user_goal and is_first_time:
+        welcome_message += f" I understand your goal is to {user_goal}. Let's work on that together."
+    
+    # Further personalize if we have previous interaction data (returning user)
+    if not is_first_time:
         if user_name:
             welcome_message = f"Welcome back, {user_name}! I'm Sarah, your mental health coach. How have you been since our last conversation?"
         else:
             welcome_message = "Welcome back! I'm Sarah, your mental health coach. How have you been since our last conversation?"
-    
-    # Mention the goal if it was provided in metadata
-    if user_goal and not (pending_tasks or insights):
-        welcome_message += f" I understand your goal is to {user_goal}. Let's work on that together."
     
     # Send welcome message
     await agent.say(welcome_message, allow_interruptions=True)
