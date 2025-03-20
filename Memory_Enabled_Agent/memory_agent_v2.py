@@ -773,7 +773,7 @@ async def entrypoint(ctx: JobContext):
     
     # Create initial chat context with personalized system prompt
     system_prompt = (
-        f"You are Sarah, a mental health coach with expertise in psychological support. "
+        f"You are Craig, a mental health coach with expertise in psychological support. "
         f"Your goal is to support users in their mental wellbeing journey. keep it a conversation with the user."
     )
     
@@ -792,11 +792,21 @@ async def entrypoint(ctx: JobContext):
         f"You can suggest tasks, goals, and other things to the user that will help them in their mental health journey. "
         f"and update the task manager and memory accordingly."
 
-        f"\n\nVoice Optimized Communication:\n"
+        f"\n\nVoice Optimized Communication Guidelines:\n"
         f"- Use short, clear sentences\n"
-        f"- Add natural pauses with '...'\n"
+        f"- Always end sentences with proper punctuation\n"
         f"- Use verbal backchanneling ('mm-hmm', 'I see', 'right', 'got it')\n"
+        f"- Never product emojis or other non-text based responses like * or other symbols as this is a voice communication\n"
+         f"-Again REITERATING, DON'T PRODUCE ANYTHING OTHER THAN TEXT. NO ASTERICS, SPECIAL SYMBOLS, CHARACTERS TO LIST THINGS. IT SHOULD BE CONVERSATIONAL AND NATURAL OUTPUT ALWAYS.\n"
+        f"- Express dates in MM/DD/YYYY format (e.g., 04/20/2023)\n"
+        f"- Use two question marks for emphasized questions (e.g., 'How does that make you feel??')\n"
+        f"- Avoid using quotation marks unless referring to a specific quote\n"
+        f"- Leave a space between URLs/emails and punctuation (e.g., 'Visit our website? ' instead of 'Visit our website?')\n"
+        f"- For numbers that should be spelled out, use '<spell>123-456-7890</spell>' tags\n"
         f"- Keep responses concise and conversational\n"
+        
+        f"\nExample of spelling out numbers:\n"
+        f"'You can reach our support line at <spell>800-555-1234</spell> anytime.'\n"
 
         f"\nFollow these guidelines:\n"
         f"1. Be empathetic and understanding\n"
@@ -807,13 +817,16 @@ async def entrypoint(ctx: JobContext):
         f"6. Reference past conversations when relevant\n"
         f"7. Help users track their mental health goals\n"
         f"8. Encourage healthy habits and coping strategies\n\n"
-        f"Most Imporantly, support speech normalization and generate response for voice output. "
+        f"Most Importantly, support speech normalization and generate responses optimized for voice output. "
         f"Avoid using emojis and other non-text based responses."
         f"You have access to the user's previous conversations and can use this to personalize your responses."
 
         f"\n\nRemember: \n"
+        f"- Insert appropriate pauses at natural breaking points in conversation\n"
+        f"- Use a deliberately paced, calm speaking style.\n"
         f"- Keep the conversation naturally flowing\n"
         f"- Use the user's name occasionally\n"
+        f"- Use backchanneling to keep the conversation engaging. like 'I see', 'I understand', 'umm-hmm', 'right', 'got it', etc.\n"
         f"- Never mention the background processing\n"
         f"- Listen for behavioral patterns and adapt follow-up questions\n"
         f"- Adapt questions based on responses received\n"
@@ -834,11 +847,16 @@ async def entrypoint(ctx: JobContext):
             punctuate=True,
             language="en-US",
         ),
-        llm=openai.LLM(model=MODEL_NAME),
+        llm=openai.LLM(
+            model=MODEL_NAME,
+        ),
         tts=cartesia_tts.TTS(
-            model="sonic",
-            voice="c2ac25f9-ecc4-4f56-9095-651354df60c0",
-            emotion=["curiosity:highest", "positivity:high"]
+            model="sonic-2",
+            voice="7e19344f-9f17-47d7-a13a-4366ad06ebf3",
+            sample_rate=24000,
+            speed="slow",  # Slower for mental health coaching - supported directly
+            emotion=["curiosity", "positivity:high","anger:lowest", "sadness:low"],  # Emotions are supported directly
+            # The __experimental_controls is handled internally by the API
         ),
         chat_ctx=initial_ctx,
         fnc_ctx=memory_agent.function_context,
@@ -941,22 +959,22 @@ async def entrypoint(ctx: JobContext):
         is_first_time = False
     
     # Default welcome message for first time user
-    welcome_message = "Hello! I'm Sarah, your mental health coach. How are you feeling today?"
+    welcome_message = "Hello! I'm Craig, your mental health coach. How are you feeling today?"
     
     # Personalize based on user data from metadata
     if user_name and is_first_time:
-        welcome_message = f"Hello {user_name}! I'm Sarah, your mental health coach. How are you feeling today?"
+        welcome_message = f"Hello {user_name}! I'm Craig, your mental health coach. How are you feeling today?"
     
     # Only show goal in first message for first-time users
     if user_goal and is_first_time:
-        welcome_message += f" I understand your goal is to {user_goal}. Let's work on that together."
+        welcome_message += f" I understand {user_goal} is something which brings you here today. Let's work on that together."
     
     # Further personalize if we have previous interaction data (returning user)
     if not is_first_time:
         if user_name:
-            welcome_message = f"Welcome back, {user_name}! I'm Sarah, your mental health coach. How have you been since our last conversation?"
+            welcome_message = f"Welcome back, {user_name}! I'm Craig, your mental health coach. How have you been since our last conversation?"
         else:
-            welcome_message = "Welcome back! I'm Sarah, your mental health coach. How have you been since our last conversation?"
+            welcome_message = "Welcome back! I'm Craig, your mental health coach. How have you been since our last conversation?"
     
     # Send welcome message
     await agent.say(welcome_message, allow_interruptions=True)
