@@ -10,6 +10,7 @@
 #   logs      - View logs
 #   shell     - Access shell inside container
 #   status    - View container status
+#   download-models - Download required models
 
 # Default command
 COMMAND=${1:-start}
@@ -24,6 +25,7 @@ fi
 
 # Create data directory if it doesn't exist
 mkdir -p data
+mkdir -p model_cache
 
 # Execute command
 case $COMMAND in
@@ -56,9 +58,13 @@ case $COMMAND in
         echo "Container status:"
         docker-compose ps
         ;;
+    download-models)
+        echo "Downloading required models..."
+        docker-compose exec nhs-agent python nhs_agents.py download-files
+        ;;
     *)
         echo "Unknown command: $COMMAND"
-        echo "Usage: ./run_docker.sh [build|start|stop|restart|logs|shell|status]"
+        echo "Usage: ./run_docker.sh [build|start|stop|restart|logs|shell|status|download-models]"
         exit 1
         ;;
 esac

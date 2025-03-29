@@ -8,15 +8,24 @@ services:
     container_name: nhs-agent
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8080:8080"  # Main LiveKit agents port
+      - "7880:7880"  # Additional port for LiveKit web interface (if needed)
     env_file:
       - .env
+    environment:
+      - PYTHONUNBUFFERED=1
     volumes:
       - ./data:/app/data
-      # Uncomment if you need to mount a credentials file
-      # - ~/.config/gcloud:/root/.config/gcloud
+      - ./.env:/app/.env
+      - ./model_cache:/app/model_cache
     networks:
       - nhs-network
+    # If you want to check logs directly
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   nhs-network:
