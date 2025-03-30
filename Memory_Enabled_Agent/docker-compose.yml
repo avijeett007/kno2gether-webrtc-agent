@@ -17,7 +17,6 @@ services:
     volumes:
       - ./data:/app/data
       - ./.env:/app/.env
-      - ./model_cache:/app/model_cache
     networks:
       - nhs-network
     # If you want to check logs directly

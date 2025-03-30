@@ -45,23 +45,19 @@ COPY nhs_agents.py .
 
 # Create necessary directories
 RUN mkdir -p ./data
-RUN mkdir -p ./model_cache
 
 # Create empty .env file (will be populated via environment variables or volume mount)
 RUN touch .env
 
-# Set environment variable for model cache directory
-ENV LIVEKIT_AGENTS_CACHE_DIR=/app/model_cache
+# Set environment variable for unbuffered output
 ENV PYTHONUNBUFFERED=1
 
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD ps aux | grep python | grep nhs_agents.py || exit 1
 
-# Create startup script that will download models then start the agent
+# Create startup script
 RUN echo '#!/bin/bash\n\
-echo "Downloading required models..."\n\
-python nhs_agents.py download-files\n\
 echo "Starting NHS Virtual Assistant..."\n\
 exec python nhs_agents.py start' > /app/start.sh && \
     chmod +x /app/start.sh

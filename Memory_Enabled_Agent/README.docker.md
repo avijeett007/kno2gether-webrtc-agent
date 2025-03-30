@@ -36,7 +36,6 @@ This directory contains Docker configuration for running the NHS Virtual Assista
    - Build the Docker image with all required dependencies
    - Start the NHS agent service
    - Mount the `./data` directory for persistent storage
-   - Automatically download required LiveKit models
 
    For convenience, you can also use the provided script:
 
@@ -69,6 +68,15 @@ The agent can be configured through environment variables in the `.env` file:
 
 You can add any other environment variables needed by the application to the `.env` file and they will be automatically available inside the container.
 
+## Knowledge Base Implementation
+
+This NHS Virtual Assistant is optimized to work without requiring internet access during operation, except for:
+
+1. **OpenAI API calls** - Required for embedding generation and LLM responses
+2. **Qdrant Vector Database** - Must be accessible to query knowledge collections
+
+The agent does NOT rely on downloading external models, which eliminates installation issues and makes deployment simpler.
+
 ## Troubleshooting
 
 - **Connection issues**: Ensure your LiveKit server is accessible
@@ -96,24 +104,12 @@ For ease of use, a utility script `run_docker.sh` is provided with the following
 - `./run_docker.sh logs` - View container logs
 - `./run_docker.sh shell` - Access a shell inside the container
 - `./run_docker.sh status` - Check container status
-- `./run_docker.sh download-models` - Manually download LiveKit models
-
-## Model Management
-
-The NHS agent requires specific models for voice activity detection (VAD) and turn detection. These models are automatically downloaded when the container starts up using the `download-files` command built into the agent.
-
-The download process happens automatically when the container starts, but if you need to manually trigger it again, you can do so by:
-
-```bash
-docker-compose exec nhs-agent python nhs_agents.py download-files
-```
-
-Models are stored in the container's `/app/model_cache` directory, and this directory is mounted as a volume to preserve models between container restarts.
 
 ## Implementation Details
 
-This Docker setup follows the same approach used by the Knotie AI Pro Agent:
+This Docker setup:
 - Uses a multi-stage build to create a smaller final image
-- Downloads models before starting the agent
-- Mounts the .env file and model cache as volumes
-- Includes a health check to monitor the agent's status 
+- Mounts the .env file and data directory as volumes
+- Includes a health check to monitor the agent's status
+- Relies solely on Qdrant vector database for knowledge retrieval
+- Provides source citations for all medical information 

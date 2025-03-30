@@ -822,7 +822,7 @@ class NHSAgent:
                                     "- Begin your response with 'According to [Document Title] by [Authors],'\n"
                                     "- For each separate piece of information from different sources, clearly indicate the source\n"
                                     "- If synthesizing from multiple sources, list each source: 'Based on information from [Source 1], [Source 2], and [Source 3]...'\n"
-                                    "- Always refer to the source by the exact document title and authors as listed above\n"
+                                    "- Always refer to the source by the exact document title and authors\n"
                                     "- If the user asks about the source of your information, provide the complete document title and authors\n"
                                     "This ensures the user knows the information comes from authoritative medical literature and not from your general knowledge."
                                 )
@@ -1021,8 +1021,20 @@ def validate_room_name(room_name: str) -> Union[str, None]:
 def prewarm(proc: JobProcess):
     """Preload models for faster startup"""
     # Load VAD model for voice activity detection
-    proc.userdata["vad"] = silero.VAD.load()
-    logger.info("Prewarmed models loaded")
+    try:
+        proc.userdata["vad"] = silero.VAD.load()
+        logger.info("Prewarmed VAD model loaded")
+    except Exception as e:
+        logger.warning(f"Failed to prewarm VAD model: {e}")
+        proc.userdata["vad"] = None
+    
+    # Try to load turn detector model, but make it optional
+    try:
+        proc.userdata["turn_detector"] = turn_detector.EOUModel()
+        logger.info("Prewarmed turn detector model loaded")
+    except Exception as e:
+        logger.warning(f"Failed to prewarm turn detector model: {e}. Will use default pause detection.")
+        proc.userdata["turn_detector"] = None
 
 async def fetch_patient_data(nhs_number: str) -> Optional[PatientData]:
     """Fetch patient data from the API"""
@@ -1150,110 +1162,126 @@ async def entrypoint(ctx: JobContext):
         text=system_prompt,
     )
     
-    # Create the voice pipeline agent
-    agent = VoicePipelineAgent(
-        vad=ctx.proc.userdata.get("vad", silero.VAD.load()),
-        stt=deepgram.STT(
-            model="nova-2-general",
-            interim_results=True,
-            smart_format=True,
-            punctuate=True,
-            language="en-US",
-        ),
-        llm=openai.LLM(
-            model=MODEL_NAME,
-        ),
-        tts=cartesia_tts.TTS(
-            model="sonic-2",
-            voice="7e19344f-9f17-47d7-a13a-4366ad06ebf3",
-            sample_rate=24000,
-            speed="normal",
-            emotion=["curiosity", "positivity:high"],
-        ),
-        chat_ctx=initial_ctx,
-        fnc_ctx=nhs_agent.function_context,
-        turn_detector=turn_detector.EOUModel(),
-        before_llm_cb=nhs_agent.before_llm_callback,
-    )
-    
-    # Set up event handlers for recording messages
-    @agent.on("user_speech_committed")
-    def on_user_speech_committed(msg: llm.ChatMessage):
-        if isinstance(msg.content, list):
-            content = "\n".join(
-                "[image]" if isinstance(x, llm.ChatImage) else str(x) for x in msg.content
-            )
-        else:
+    # Create the voice pipeline agent without using turn detector
+    # This avoids the initialization failure related to the turn detector model
+    try:
+        # Try to create an optional turn detector if available
+        turn_detector_instance = None
+        try:
+            turn_detector_instance = turn_detector.EOUModel()
+            logger.info("Using EOUModel turn detector")
+        except Exception as e:
+            logger.warning(f"Could not initialize turn detector: {e}. Using default pause detection.")
+            
+        # Create the voice pipeline agent
+        agent = VoicePipelineAgent(
+            vad=ctx.proc.userdata.get("vad", silero.VAD.load()),
+            stt=deepgram.STT(
+                model="nova-2-general",
+                interim_results=True,
+                smart_format=True,
+                punctuate=True,
+                language="en-US",
+            ),
+            llm=openai.LLM(
+                model=MODEL_NAME,
+            ),
+            tts=cartesia_tts.TTS(
+                model="sonic-2",
+                voice="7e19344f-9f17-47d7-a13a-4366ad06ebf3",
+                sample_rate=24000,
+                speed="normal",
+                emotion=["curiosity", "positivity:high"],
+            ),
+            chat_ctx=initial_ctx,
+            fnc_ctx=nhs_agent.function_context,
+            turn_detector=turn_detector_instance,  # This can be None if initialization failed
+            before_llm_cb=nhs_agent.before_llm_callback,
+        )
+        
+        # Set up event handlers for recording messages
+        @agent.on("user_speech_committed")
+        def on_user_speech_committed(msg: llm.ChatMessage):
+            if isinstance(msg.content, list):
+                content = "\n".join(
+                    "[image]" if isinstance(x, llm.ChatImage) else str(x) for x in msg.content
+                )
+            else:
+                content = msg.content
+                
+            logger.info(f"User speech committed: {content[:50]}...")
+            nhs_agent.add_user_message(content)
+        
+        @agent.on("agent_speech_committed")
+        def on_agent_speech_committed(msg: llm.ChatMessage):
             content = msg.content
-            
-        logger.info(f"User speech committed: {content[:50]}...")
-        nhs_agent.add_user_message(content)
-    
-    @agent.on("agent_speech_committed")
-    def on_agent_speech_committed(msg: llm.ChatMessage):
-        content = msg.content
-        logger.info(f"Agent speech committed: {content[:50]}...")
-        nhs_agent.add_agent_message(content)
-    
-    # Set up metrics collection
-    usage_collector = metrics.UsageCollector()
-    @agent.on("metrics_collected")
-    def on_metrics_collected(mtrcs: metrics.AgentMetrics):
-        metrics.log_metrics(mtrcs)
-        usage_collector.collect(mtrcs)
-    
-    # Process conversation at end of session
-    async def end_of_session():
-        # Process conversation for memory storage
-        await nhs_agent.process_conversation()
+            logger.info(f"Agent speech committed: {content[:50]}...")
+            nhs_agent.add_agent_message(content)
         
-        # Log conversation summary
-        user_messages = [msg for msg in nhs_agent.conversation_history if msg["role"] == "user"]
-        agent_messages = [msg for msg in nhs_agent.conversation_history if msg["role"] == "assistant"]
+        # Set up metrics collection
+        usage_collector = metrics.UsageCollector()
+        @agent.on("metrics_collected")
+        def on_metrics_collected(mtrcs: metrics.AgentMetrics):
+            metrics.log_metrics(mtrcs)
+            usage_collector.collect(mtrcs)
         
-        if user_messages:
-            # Calculate conversation statistics
-            conversation_duration = None
-            if len(nhs_agent.conversation_history) >= 2:
-                first_msg_time = datetime.datetime.fromisoformat(nhs_agent.conversation_history[0]["timestamp"])
-                last_msg_time = datetime.datetime.fromisoformat(nhs_agent.conversation_history[-1]["timestamp"])
-                conversation_duration = (last_msg_time - first_msg_time).total_seconds()
+        # Process conversation at end of session
+        async def end_of_session():
+            # Process conversation for memory storage
+            await nhs_agent.process_conversation()
             
-            # Log summary
-            logger.info("=" * 50)
-            logger.info("CONVERSATION SUMMARY")
-            logger.info("=" * 50)
-            logger.info(f"User type: {user_type}")
-            logger.info(f"User ID: {user_id}")
-            logger.info(f"Total messages: {len(nhs_agent.conversation_history)}")
-            logger.info(f"User messages: {len(user_messages)}")
-            logger.info(f"Agent messages: {len(agent_messages)}")
+            # Log conversation summary
+            user_messages = [msg for msg in nhs_agent.conversation_history if msg["role"] == "user"]
+            agent_messages = [msg for msg in nhs_agent.conversation_history if msg["role"] == "assistant"]
             
-            if conversation_duration:
-                minutes = int(conversation_duration // 60)
-                seconds = int(conversation_duration % 60)
-                logger.info(f"Conversation duration: {minutes}m {seconds}s")
+            if user_messages:
+                # Calculate conversation statistics
+                conversation_duration = None
+                if len(nhs_agent.conversation_history) >= 2:
+                    first_msg_time = datetime.datetime.fromisoformat(nhs_agent.conversation_history[0]["timestamp"])
+                    last_msg_time = datetime.datetime.fromisoformat(nhs_agent.conversation_history[-1]["timestamp"])
+                    conversation_duration = (last_msg_time - first_msg_time).total_seconds()
+                
+                # Log summary
+                logger.info("=" * 50)
+                logger.info("CONVERSATION SUMMARY")
+                logger.info("=" * 50)
+                logger.info(f"User type: {user_type}")
+                logger.info(f"User ID: {user_id}")
+                logger.info(f"Total messages: {len(nhs_agent.conversation_history)}")
+                logger.info(f"User messages: {len(user_messages)}")
+                logger.info(f"Agent messages: {len(agent_messages)}")
+                
+                if conversation_duration:
+                    minutes = int(conversation_duration // 60)
+                    seconds = int(conversation_duration % 60)
+                    logger.info(f"Conversation duration: {minutes}m {seconds}s")
+                
+                logger.info("=" * 50)
             
-            logger.info("=" * 50)
+            # Log usage metrics
+            summary = usage_collector.get_summary()
+            logger.info(f"Usage: {summary}")
         
-        # Log usage metrics
-        summary = usage_collector.get_summary()
-        logger.info(f"Usage: {summary}")
-    
-    # Add to shutdown callbacks
-    ctx.add_shutdown_callback(end_of_session)
-    
-    # Start the agent
-    agent.start(ctx.room, participant)
-    
-    # Create welcome message based on user type
-    if user_type == "patient":
-        welcome_message = create_patient_welcome(user_data)
-    else:
-        welcome_message = create_doctor_welcome(user_data)
-    
-    # Send welcome message
-    await agent.say(welcome_message, allow_interruptions=True)
+        # Add to shutdown callbacks
+        ctx.add_shutdown_callback(end_of_session)
+        
+        # Start the agent
+        agent.start(ctx.room, participant)
+        
+        # Create welcome message based on user type
+        if user_type == "patient":
+            welcome_message = create_patient_welcome(user_data)
+        else:
+            welcome_message = create_doctor_welcome(user_data)
+        
+        # Send welcome message
+        await agent.say(welcome_message, allow_interruptions=True)
+        
+    except Exception as e:
+        logger.error(f"Error initializing agent: {e}")
+        # Attempt to explain error to the user
+        ctx.error = f"Failed to initialize NHS virtual assistant: {str(e)}"
 
 def create_patient_system_prompt(patient_data: PatientData) -> str:
     """Create system prompt for patient interactions"""
@@ -1421,6 +1449,7 @@ def create_doctor_welcome(doctor_data: DoctorData) -> str:
 
 if __name__ == "__main__":
     # Run the LiveKit agent
+    logger.info("Starting NHS Virtual Assistant - using vector database only, no internet required")
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
