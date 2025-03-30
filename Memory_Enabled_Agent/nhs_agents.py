@@ -92,57 +92,90 @@ KNOWLEDGE_BASE_MAP = {
             {
                 "id": "nhs-demo_VasoplegicShockKnowledgeBase",
                 "domain": "Critical Care",
-                "content": "Management of vasoplegic shock: pathophysiology, diagnosis, vasopressors, adjuvant therapies, hemodynamic monitoring strategies"
+                "content": "Management of vasoplegic shock: pathophysiology, diagnosis, vasopressors, adjuvant therapies, hemodynamic monitoring strategies",
+                "document_name": "Management-of-vasoplegic-shock_2024_bjae",
+                "document_title": "Management of vasoplegic shock",
+                "authors": "R.N. Mistry and J.E. Winearls, Gold Coast University Hospital, Australia"
             },
             {
                 "id": "nhs-demo_CaesareanPainKnowledgeBase",
                 "domain": "Obstetric Anesthesia",
-                "content": "Managing intraoperative pain during Caesarean under neuraxial anesthesia: risk assessment, technique selection, block testing, breakthrough pain management, incidence rates"
+                "content": "Managing intraoperative pain during Caesarean under neuraxial anesthesia: risk assessment, technique selection, block testing, breakthrough pain management, incidence rates",
+                "document_name": "Patient-centred-strategies-in-obstetric-anaesthesi",
+                "document_title": "Prevention and management of intraoperative pain during Caesarean section",
+                "authors": "S. Orbach-Zinger and Y. Binyamin, Israel"
             },
             {
                 "id": "nhs-demo_TraumaInformedCareKnowledgeBase",
                 "domain": "Obstetric Anesthesia",
-                "content": "Trauma-informed care in obstetric anesthesia: psychological trauma recognition, communication strategies, consent processes, preventing retraumatization in vulnerable patients"
+                "content": "Trauma-informed care in obstetric anesthesia: psychological trauma recognition, communication strategies, consent processes, preventing retraumatization in vulnerable patients",
+                "document_name": "Patient-centred-strategies-in-obstetric-anaesthesi",
+                "document_title": "Patient-centred strategies in obstetric anaesthesia",
+                "authors": "B.D. Mergler, C.C. Duffy and R.J. Mergler, USA"
             },
             {
                 "id": "nhs-demo_SpinalPathologyKnowledgeBase",
                 "domain": "Obstetric Anesthesia",
-                "content": "Neuraxial anesthesia for patients with spinal pathology: mechanical back pain, disc disease, scoliosis, previous surgery, spinal dysraphism, technique modifications"
+                "content": "Neuraxial anesthesia for patients with spinal pathology: mechanical back pain, disc disease, scoliosis, previous surgery, spinal dysraphism, technique modifications",
+                "document_name": "Neuraxial-anaesthesia-in-the-parturient-with-pre-e",
+                "document_title": "Neuraxial anaesthesia in the parturient with pre-existing structural spinal pathology",
+                "authors": "G. Crowe and T. Drew, Ireland"
             },
             {
                 "id": "nhs-demo_IntracranialPathologyKnowledgeBase",
                 "domain": "Obstetric Anesthesia",
-                "content": "Neuraxial anesthesia for patients with intracranial pathology: hydrocephalus, brain tumors, Chiari malformations, elevated ICP management during labor/delivery"
-            },
-            {
-                "id": "nhs-demo_MaternalSepsisKnowledgeBase",
-                "domain": "Obstetric Critical Care",
-                "content": "Maternal sepsis management: risk factors, diagnosis, early warning systems, antibiotics, fluid resuscitation, source control, care location decisions"
-            },
-            {
-                "id": "nhs-demo_CriticalCareEchocardiographyKnowledgeBase",
-                "domain": "Critical Care",
-                "content": "Critical care echocardiography: transthoracic/transoesophageal techniques, training requirements, cardiac views, interpretation, applications in shock and cardiac arrest"
-            },
-            {
-                "id": "nhs-demo_NeuroanaesthesiaKnowledgeBase",
-                "domain": "Neuroanesthesia",
-                "content": "Anesthetic management for pituitary surgery: gland anatomy/physiology, hormone hypersecretion, preoperative assessment, airway considerations, complications"
-            },
-            {
-                "id": "nhs-demo_PediatricCardiacERASKnowledgeBase",
-                "domain": "Pediatric Cardiac",
-                "content": "Enhanced recovery after pediatric cardiac surgery: patient selection, preoperative preparation, perioperative/postoperative management for accelerated recovery"
-            },
-            {
-                "id": "nhs-demo_PediatricCardiacAnaesthesiaKnowledgeBase",
-                "domain": "Pediatric Cardiac",
-                "content": "Anesthetic management for children with congenital heart disease undergoing non-cardiac procedures: risk stratification, assessment, management for different CHD physiologies"
+                "content": "Neuraxial anesthesia for patients with intracranial pathology: hydrocephalus, brain tumors, Chiari malformations, elevated ICP management during labor/delivery",
+                "document_name": "Neuraxial-anaesthesia-for-the-parturient-with-intr",
+                "document_title": "Neuraxial anaesthesia for the parturient with intracranial pathology",
+                "authors": "C. Warrick, W. Schievink and M. Zakowski, USA"
             },
             {
                 "id": "nhs-demo_AirwayUltrasoundKnowledgeBase",
                 "domain": "Airway Management",
-                "content": "Airway ultrasound techniques: cricothyroid membrane identification, tracheostomy guidance, intubation confirmation, difficult laryngoscopy prediction, protocols"
+                "content": "Airway ultrasound techniques for laryngoscopy, larynx, trachea, and tracheostomy procedures",
+                "document_name": "Airway ultrasound",
+                "document_title": "Airway ultrasound",
+                "authors": "R. Lohse, W.H. Teoh and M.S. Kristensen, Copenhagen University Hospital, Denmark"
+            },
+            {
+                "id": "nhs-demo_PediatricCardiacAnaesthesiaKnowledgeBase",
+                "domain": "Pediatric Anesthesia",
+                "content": "Anesthesia for children with congenital heart disease undergoing non-cardiac surgery",
+                "document_name": "Anaesthesia-for-children-with-congenital-heart-dis",
+                "document_title": "Anaesthesia for children with congenital heart disease undergoing non-cardiac surgery",
+                "authors": "J. Spiro, J. Bauerle and D. Njoku, St. Louis Children's Hospital, USA"
+            },
+            {
+                "id": "nhs-demo_NeuroanaesthesiaKnowledgeBase",
+                "domain": "Neuroanesthesia",
+                "content": "Anesthesia for pituitary surgery: perioperative considerations and management",
+                "document_name": "Anaesthesia-for-pituitary-surgery_2024_bjae",
+                "document_title": "Anaesthesia for pituitary surgery",
+                "authors": "K. Raveendran, S. Kwok and L. Glancz, UK"
+            },
+            {
+                "id": "nhs-demo_CriticalCareEchocardiographyKnowledgeBase",
+                "domain": "Critical Care",
+                "content": "Critical care echocardiography: training, imaging techniques, and clinical indications",
+                "document_name": "Critical-care-echocardiography--training,-imaging",
+                "document_title": "Critical care echocardiography: training, imaging, and indications",
+                "authors": "J.K. Cheng and R. Arntfield, New Zealand and Canada"
+            },
+            {
+                "id": "nhs-demo_PediatricCardiacERASKnowledgeBase",
+                "domain": "Pediatric Anesthesia",
+                "content": "Enhanced recovery protocols after pediatric cardiac surgery",
+                "document_name": "Enhanced-recovery-after-paediatric-cardiac-surgery",
+                "document_title": "Enhanced recovery after paediatric cardiac surgery",
+                "authors": "L. Foote, L. Hepburn and C. Goodison, Great Ormond Street Hospital, UK"
+            },
+            {
+                "id": "nhs-demo_MaternalSepsisKnowledgeBase",
+                "domain": "Obstetric Anesthesia",
+                "content": "Maternal sepsis: background, diagnosis, and management approaches",
+                "document_name": "Maternal-sepsis--background,-diagnosis-and-managemt",
+                "document_title": "Maternal sepsis: background, diagnosis and management",
+                "authors": "J. Manigrasso, N. Desai and E. Naoum, USA and UK"
             }
         ]
     }
@@ -359,16 +392,16 @@ class VectorMemory:
             return ""
 
 class KnowledgeBase:
-    """Medical knowledge base integration"""
+    """Medical knowledge base integration using Qdrant vector database"""
     
     def __init__(self):
         self.knowledge_map = KNOWLEDGE_BASE_MAP
     
-    def get_relevant_knowledge_bases(self, query: str) -> List[str]:
+    def get_relevant_knowledge_bases(self, query: str) -> List[Dict[str, Any]]:
         """Get relevant knowledge base IDs based on query"""
         try:
-            # For now, use a simple keyword matching approach
-            # In a production system, this would use embeddings and semantic search
+            # For now, use a keyword matching approach
+            # In a production system, this could use embeddings for better matching
             query = query.lower()
             relevant_kbs = []
             
@@ -376,35 +409,48 @@ class KnowledgeBase:
                 # Check content and domain for keyword matches
                 content = kb["content"].lower()
                 domain = kb["domain"].lower()
+                title = kb.get("document_title", "").lower()
                 
                 # Simple scoring system - count word matches
                 score = 0
                 for word in query.split():
                     if len(word) > 3:  # Skip short words
                         if word in content:
-                            score += 1
+                            score += 1.5
                         if word in domain:
                             score += 2  # Weight domain matches higher
+                        if word in title:
+                            score += 2.5  # Weight title matches highest
                 
                 if score > 0:
                     relevant_kbs.append({
                         "id": kb["id"],
                         "score": score,
-                        "domain": kb["domain"]
+                        "domain": kb["domain"],
+                        "document_title": kb.get("document_title", ""),
+                        "document_name": kb.get("document_name", ""),
+                        "authors": kb.get("authors", "")
                     })
             
             # Sort by relevance score
             relevant_kbs.sort(key=lambda x: x["score"], reverse=True)
             
-            # Return top 3 knowledge base IDs
-            return [kb["id"] for kb in relevant_kbs[:3]]
+            # Log the selected knowledge bases
+            if relevant_kbs:
+                logger.info(f"Selected knowledge bases for query '{query[:30]}...': {[kb['id'] for kb in relevant_kbs[:3]]}")
+            else:
+                logger.warning(f"No relevant knowledge bases found for query: {query[:30]}...")
+                
+            # Return top 3 knowledge base details
+            return relevant_kbs[:3]
             
         except Exception as e:
             logger.error(f"Error finding relevant knowledge bases: {e}")
             return []
     
-    def query_knowledge_base(self, collection_id: str, query: str, limit: int = 3) -> str:
+    def query_knowledge_base(self, kb_info: Dict[str, Any], query: str, limit: int = 5) -> Dict[str, Any]:
         """Query a specific knowledge base collection"""
+        collection_id = kb_info["id"]
         try:
             # Get embedding from OpenAI
             openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
@@ -422,47 +468,91 @@ class KnowledgeBase:
             )
             
             if not search_results:
-                return ""
+                return {"text": "", "source_info": kb_info}
             
-            # Format results
+            # Format results with page numbers or section information if available
             results = []
             for hit in search_results:
                 text = hit.payload.get("text", "")
-                source = hit.payload.get("source", "NHS Guidelines")
-                results.append(f"Source: {source}\n{text}")
+                page = hit.payload.get("page", "")
+                section = hit.payload.get("section", "")
+                
+                # Add page/section context if available
+                context = ""
+                if page:
+                    context += f"(Page {page})"
+                if section:
+                    context += f" Section: {section}"
+                
+                if text:
+                    if context:
+                        results.append(f"{context}\n{text}")
+                    else:
+                        results.append(text)
             
             logger.info(f"Retrieved knowledge from {collection_id} for query: {query[:50]}...")
-            return "\n\n".join(results)
+            
+            return {
+                "text": "\n\n".join(results),
+                "source_info": kb_info,
+                "score": kb_info["score"]
+            }
             
         except Exception as e:
             logger.error(f"Error querying knowledge base {collection_id}: {e}")
-            return ""
+            return {"text": "", "source_info": kb_info, "score": 0}
     
-    def get_comprehensive_knowledge(self, query: str) -> str:
+    def get_comprehensive_knowledge(self, query: str) -> Dict[str, Any]:
         """Get comprehensive knowledge from relevant sources"""
         try:
-            # Get relevant knowledge base IDs
-            kb_ids = self.get_relevant_knowledge_bases(query)
-            
-            # Always include common knowledge base
-            if COMMON_KNOWLEDGE_COLLECTION not in kb_ids:
-                kb_ids.append(COMMON_KNOWLEDGE_COLLECTION)
+            # Get relevant knowledge base details
+            kb_details = self.get_relevant_knowledge_bases(query)
             
             # Query each knowledge base
             all_results = []
-            for kb_id in kb_ids:
-                result = self.query_knowledge_base(kb_id, query)
-                if result:
-                    all_results.append(result)
+            sources_used = []
+            
+            for kb_info in kb_details:
+                result = self.query_knowledge_base(kb_info, query)
+                if result["text"]:
+                    all_results.append({
+                        "text": result["text"],
+                        "score": result.get("score", 0),
+                        "source_info": result["source_info"]
+                    })
+                    
+                    # Add source information
+                    source_info = result["source_info"]
+                    sources_used.append({
+                        "id": source_info["id"],
+                        "title": source_info.get("document_title", "Unknown"),
+                        "authors": source_info.get("authors", ""),
+                        "domain": source_info.get("domain", "")
+                    })
             
             if not all_results:
-                return "No relevant information found in the knowledge base. I can only provide general NHS guidance on this topic."
+                return {
+                    "text": "I don't have specific information about that in my knowledge base. I can only provide information based on the medical literature I have access to.",
+                    "sources": []
+                }
             
-            return "\n\n".join(all_results)
+            # Sort results by relevance score
+            all_results.sort(key=lambda x: x["score"], reverse=True)
+            
+            # Combine texts from all sources
+            combined_text = "\n\n".join([result["text"] for result in all_results])
+            
+            return {
+                "text": combined_text,
+                "sources": sources_used
+            }
             
         except Exception as e:
             logger.error(f"Error getting comprehensive knowledge: {e}")
-            return "I encountered an issue accessing the medical knowledge base. I can only provide general NHS guidance on this topic."
+            return {
+                "text": "I encountered an issue accessing the medical knowledge base. I can only provide information based on the medical literature I have access to.",
+                "sources": []
+            }
 
 class NHSFunctions(llm.FunctionContext):
     """Function context for NHS virtual assistant"""
@@ -488,8 +578,30 @@ class NHSFunctions(llm.FunctionContext):
     ) -> str:
         """Query medical knowledge base"""
         try:
-            knowledge = self.knowledge_base.get_comprehensive_knowledge(query)
-            return f"Medical knowledge on '{query}':\n\n{knowledge}"
+            knowledge_result = self.knowledge_base.get_comprehensive_knowledge(query)
+            knowledge_text = knowledge_result.get("text", "")
+            sources = knowledge_result.get("sources", [])
+            
+            if not knowledge_text:
+                return "I'm sorry, I don't have specific information about that topic in my knowledge base. Please consider consulting official medical resources or speaking with a healthcare provider for more information."
+            
+            # Format response with source citations
+            response = f"Here's information on '{query}':\n\n{knowledge_text}\n\n"
+            
+            # Add source citations
+            if sources:
+                response += "This information is sourced from:\n"
+                for idx, source in enumerate(sources):
+                    title = source.get("title", "Unknown")
+                    authors = source.get("authors", "")
+                    domain = source.get("domain", "")
+                    response += f"{idx+1}. {title} by {authors} ({domain})\n"
+                
+                response += "\nWhen using this information in clinical practice, always refer to these source documents for complete details and context."
+            else:
+                response += "Note: This information is provided for educational purposes only and should be verified with primary medical literature sources."
+            
+            return response
         except Exception as e:
             return f"Failed to query medical knowledge: {str(e)}"
     
@@ -674,14 +786,47 @@ class NHSAgent:
                     if memory_context:
                         context_parts.append(f"Previous conversation context:\n{memory_context}")
                     
-                    # For patient-specific queries, try to add knowledge base context
-                    if self.user_data.user_type == "patient" or "patient" in user_message.lower():
-                        # Check if this is a medical query
-                        medical_terms = self._identify_medical_terms(user_message)
-                        if medical_terms:
-                            knowledge = self.knowledge_base.get_comprehensive_knowledge(user_message)
-                            if knowledge:
-                                context_parts.append(f"Relevant medical information:\n{knowledge}")
+                    # Determine if this is a medical query
+                    is_medical_query = False
+                    medical_terms = self._identify_medical_terms(user_message)
+                    
+                    if len(medical_terms) > 0 or self._is_knowledge_query(user_message):
+                        is_medical_query = True
+                    
+                    # For doctor queries or patient medical queries, get relevant information from knowledgebase
+                    if is_medical_query:
+                        # This is likely a medical query
+                        knowledge_result = self.knowledge_base.get_comprehensive_knowledge(user_message)
+                        knowledge_text = knowledge_result.get("text", "")
+                        sources = knowledge_result.get("sources", [])
+                        
+                        if knowledge_text:
+                            # Format the knowledge text with source information
+                            knowledge_context = f"Relevant medical information:\n{knowledge_text}\n\n"
+                            
+                            # Add source information for citation
+                            if sources:
+                                knowledge_context += "Source Information:\n"
+                                for idx, source in enumerate(sources):
+                                    title = source.get("title", "Unknown")
+                                    authors = source.get("authors", "")
+                                    domain = source.get("domain", "")
+                                    knowledge_context += f"Source {idx+1}: {title} by {authors} ({domain})\n"
+                            
+                            context_parts.append(knowledge_context)
+                            
+                            # Add reminder to cite sources with specific instructions
+                            if sources:
+                                reminder = (
+                                    "CRITICAL: When answering this medical question, you MUST cite each source you use.\n"
+                                    "- Begin your response with 'According to [Document Title] by [Authors],'\n"
+                                    "- For each separate piece of information from different sources, clearly indicate the source\n"
+                                    "- If synthesizing from multiple sources, list each source: 'Based on information from [Source 1], [Source 2], and [Source 3]...'\n"
+                                    "- Always refer to the source by the exact document title and authors as listed above\n"
+                                    "- If the user asks about the source of your information, provide the complete document title and authors\n"
+                                    "This ensures the user knows the information comes from authoritative medical literature and not from your general knowledge."
+                                )
+                                context_parts.append(reminder)
                     
                     if context_parts:
                         # Create context message
@@ -760,6 +905,33 @@ class NHSAgent:
                 found_terms.append(term)
         
         return found_terms
+    
+    def _is_knowledge_query(self, text: str) -> bool:
+        """Identify if a message is a medical knowledge query"""
+        # Keywords that suggest a request for medical information
+        knowledge_keywords = [
+            "what is", "how does", "explain", "tell me about", "information on", 
+            "research on", "studies", "guidelines", "protocol", "procedure",
+            "evidence", "treatment", "causes", "symptoms", "diagnosis", "prognosis",
+            "what are", "how to", "what should", "best practice", "recommend", "guidance"
+        ]
+        
+        text_lower = text.lower()
+        
+        # Check for question marks
+        has_question = "?" in text
+        
+        # Check for knowledge query keywords
+        for keyword in knowledge_keywords:
+            if keyword in text_lower:
+                return True
+        
+        # If it has a question mark and medical terms, it's likely a knowledge query
+        medical_terms = self._identify_medical_terms(text)
+        if has_question and len(medical_terms) > 0:
+            return True
+            
+        return False
     
     def add_user_message(self, message: str):
         """Add a user message to the conversation history"""
@@ -1089,32 +1261,45 @@ def create_patient_system_prompt(patient_data: PatientData) -> str:
     
     system_prompt = (
         f"You are an NHS virtual health assistant providing information and support to patients. Your interface with users will be voice. Pretend we're having a conversation, no special formatting or headings, just natural speech."
-        f"\n\nNever use astericks, or other special characters, or emojis, or non-verbal expressions, or special formatting. Just natural speech."
-        f"\n\nSometime it may take a while for you to respond, Let the user know you are finding more information and thinking about the best way to answer the question."
+        f"\n\nNever use asterisks, or other special characters, or emojis, or non-verbal expressions, or special formatting. Just natural speech."
+        f"\n\nSometimes it may take a while for you to respond, Let the user know you are finding more information and thinking about the best way to answer the question."
         f"You're currently speaking with a patient named {name}."
         
         f"\n\nGuiding Principles:"
         f"\n1. Medical Accuracy - Only provide information that is medically accurate and from reliable sources. "
-        f"Cite your sources when giving medical information."
+        f"ALWAYS cite your sources when giving medical information, mentioning the document title and authors."
         f"\n2. Empathetic Support - Be warm, understanding and compassionate. Many patients are anxious or concerned."
         f"\n3. Clear Communication - Use simple, clear language avoiding medical jargon where possible."
         f"\n4. Consent First - Always ask for explicit consent before accessing or discussing personal medical records."
-        f"\n5. Limitations - Be clear about your limitations. You cannot diagnose, prescribe medication, or schedule appointments."
+        f"\n5. Source Citation - For EVERY medical claim or statement, explicitly cite the source document and authors."
+        f"\n6. Limitations - Be clear about your limitations. You cannot diagnose, prescribe medication, or schedule appointments."
 
         f"\n\nImportant Guidelines:"
         f"\n- Don't make diagnoses or suggest treatments that haven't been prescribed by a doctor"
+        f"\n- All medical information MUST be attributed to specific medical literature sources in your knowledge base"
+        f"\n- Begin responses to medical questions with 'According to [Document Title] by [Authors],...'"
         f"\n- Don't offer services you can't provide such as booking appointments or issuing prescriptions"
         f"\n- Always recommend consulting with a healthcare professional for specific medical issues"
         f"\n- Be respectful of the patient's emotional state and concerns"
         f"\n- For urgent medical issues, advise contacting emergency services (999) or NHS 111"
         f"\n- If you don't know something, be honest rather than speculating"
         f"\n- Save important but non-sensitive information for future conversations using the save_to_memory function"
+        f"\n- ALWAYS cite your information sources using the pattern: 'According to [Document Title] by [Authors]...'"
+        f"\n- If the user asks about sources, provide the full document title and authors"
+        
+        f"\n\nKnowledge Base Usage:"
+        f"\n- Your knowledge comes exclusively from vector database collections of medical literature"
+        f"\n- You do not have internet access and cannot search online for information"
+        f"\n- You can only reference documents that are explicitly provided in your context"
+        f"\n- When you don't know something, state clearly that you don't have that information in your knowledge base"
+        f"\n- Never make up information or cite documents that aren't specified in your context"
+        f"\n- Translate complex medical information into patient-friendly language while maintaining accuracy"
         
         f"\n\nFunctionality Available:"
         f"\n- You can access medical knowledge bases for general health information"
         f"\n- You can access the patient's medical records ONLY after explicit consent"
         f"\n- You can explain NHS services and standard procedures"
-        f"\n- You can provide general health advice backed by NHS guidelines"
+        f"\n- You can provide general health advice backed by sources in your knowledge base"
         f"\n- You can save important information to memory for future conversations"
         
         f"\n\nMemory Management:"
@@ -1130,6 +1315,16 @@ def create_patient_system_prompt(patient_data: PatientData) -> str:
         f"\n- Use verbal acknowledgments ('I understand', 'I see', etc.)"
         f"\n- Avoid using technical medical terminology where possible"
         f"\n- Don't use emojis, special characters, or non-verbal expressions"
+        
+        f"\n\nCitation Requirements:"
+        f"\n- For ANY medical or clinical information, you MUST cite the specific document source"
+        f"\n- Use the format: 'According to [Document Title] by [Authors], ...'"
+        f"\n- If multiple sources are used, cite each one separately"
+        f"\n- If a user asks for more information about a source, provide the full document title and authors"
+        f"\n- Never invent or fabricate information beyond what is in the knowledge base"
+        f"\n- If no information is found, say: 'I don't have specific information about that in my knowledge base. I recommend speaking with your healthcare provider for guidance.'"
+        f"\n- Be transparent when synthesizing information from multiple sources by listing all sources used"
+        f"\n- When explaining complex medical information from sources, maintain accuracy while using patient-friendly language"
     )
     
     return system_prompt
@@ -1141,31 +1336,42 @@ def create_doctor_system_prompt(doctor_data: DoctorData) -> str:
     
     system_prompt = (
         f"You are an NHS virtual clinical assistant supporting healthcare professionals. Your interface with users will be voice. Pretend we're having a conversation, no special formatting or headings, just natural speech."
-        f"\n\nNever use astericks(** for Bold text etc or dashes(-) for bullet points), or other special characters, or emojis, or non-verbal expressions, or special formatting. Just natural speech."
-        f"\n\nSometime it may take a while for you to respond, Let the user know you are finding more information and thinking about the best way to answer the question."
+        f"\n\nNever use asterisks(** for Bold text etc or dashes(-) for bullet points), or other special characters, or emojis, or non-verbal expressions, or special formatting. Just natural speech."
+        f"\n\nSometimes it may take a while for you to respond, Let the user know you are finding more information and thinking about the best way to answer the question."
         f"You're currently speaking with {name}, a healthcare professional specializing in {specialty}."
         
         f"\n\nGuiding Principles:"
-        f"\n1. Clinical Accuracy - Provide medically accurate information backed by evidence. Always cite guidelines and sources."
+        f"\n1. Clinical Accuracy - Provide medically accurate information backed by evidence. ALWAYS cite guidelines and sources with document title and authors."
         f"\n2. Professional Support - Maintain a professional and efficient manner befitting clinical discussions."
         f"\n3. Detail-Oriented - Provide comprehensive information when discussing clinical topics, including relevant medical details."
         f"\n4. Evidence-Based - Base all information on current clinical evidence and established medical guidelines."
-        f"\n5. Limitations - Be clear about your limitations. You cannot access patient records or make clinical decisions."
+        f"\n5. Source Citation - For EVERY medical claim or statement, explicitly cite the source document and authors."
+        f"\n6. Limitations - Be clear about your limitations. You cannot access patient records or make clinical decisions."
 
         f"\n\nImportant Guidelines:"
-        f"\n- Focus on providing clinical information from established medical guidelines"
+        f"\n- Focus on providing clinical information ONLY from the medical literature in your knowledge base"
         f"\n- You cannot access specific patient information or records"
-        f"\n- You can discuss general case scenarios but cannot provide specific patient advice"
-        f"\n- Suggest appropriate clinical resources and references"
+        f"\n- All medical information MUST be attributed to specific BJA Education documents"
+        f"\n- Begin responses to medical questions with 'According to [Document Title] by [Authors],...'"
+        f"\n- Discuss general case scenarios but cannot provide specific patient advice"
         f"\n- Be precise with medical terminology when appropriate for professional discussion"
         f"\n- Acknowledge when information might be outside your knowledge base"
         f"\n- Save important but non-sensitive information for future conversations using the save_to_memory function"
+        f"\n- ALWAYS cite your information sources using the pattern: 'According to [Document Title] by [Authors]...'"
+        f"\n- If the doctor asks about sources, provide the full document title and authors"
+        
+        f"\n\nKnowledge Base Usage:"
+        f"\n- Your knowledge comes exclusively from vector database collections of BJA Education documents"
+        f"\n- You do not have internet access and cannot search online for information"
+        f"\n- You can only reference documents that are explicitly provided in your context"
+        f"\n- When you don't know something, state clearly that you don't have that information in your knowledge base"
+        f"\n- Never make up information or cite documents that aren't specified in your context"
         
         f"\n\nFunctionality Available:"
-        f"\n- You can access medical knowledge bases and NHS guidelines"
-        f"\n- You can explain clinical procedures and protocols based on NHS standards"
-        f"\n- You can provide information on best practices from medical literature"
-        f"\n- You can assist with general clinical questions relevant to the doctor's specialty"
+        f"\n- You can access medical knowledge bases containing BJA Education articles"
+        f"\n- You can explain clinical procedures and protocols based on these sources"
+        f"\n- You can provide information on best practices from medical literature in your knowledge base"
+        f"\n- You can assist with general clinical questions by citing relevant knowledge base documents"
         f"\n- You can save important information to memory for future conversations"
         
         f"\n\nMemory Management:"
@@ -1181,6 +1387,15 @@ def create_doctor_system_prompt(doctor_data: DoctorData) -> str:
         f"\n- Maintain a professional tone throughout the conversation"
         f"\n- Structure information in a logical clinical format"
         f"\n- Don't use emojis, special characters, or non-verbal expressions"
+        
+        f"\n\nCitation Requirements:"
+        f"\n- For ALL clinical information, you MUST cite the specific BJA Education document source"
+        f"\n- Use the format: 'According to [Document Title] by [Authors], ...'"
+        f"\n- If multiple sources are used, cite each one separately"
+        f"\n- If asked about sources, provide the complete document title and authors"
+        f"\n- Never invent information beyond what is provided in your knowledge base"
+        f"\n- If no information is found, say: 'I don't have specific information about that in my knowledge base. You may want to consult BJA Education at bjaed.org for more resources.'"
+        f"\n- Be transparent when synthesizing information from multiple sources by listing all sources used"
     )
     
     return system_prompt
