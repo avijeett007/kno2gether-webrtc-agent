@@ -93,6 +93,18 @@ The agent does NOT rely on downloading external models, which eliminates install
 - Secure your Qdrant instance with proper authentication
 - Set up proper network security for your LiveKit server
 
+## Turn Detector Model
+
+The NHS Virtual Assistant uses a turn detector model to improve conversation flow by better detecting when users have finished speaking. This model needs to be downloaded before using the agent.
+
+The Docker container will attempt to download this model automatically when it starts. You can also download it manually using:
+
+```bash
+./run_docker.sh download-models
+```
+
+If the model fails to download, the agent will still function but will use a simpler method for detecting end-of-turn, which may not be as accurate.
+
 ## Using the run_docker.sh Script
 
 For ease of use, a utility script `run_docker.sh` is provided with the following commands:
@@ -104,6 +116,7 @@ For ease of use, a utility script `run_docker.sh` is provided with the following
 - `./run_docker.sh logs` - View container logs
 - `./run_docker.sh shell` - Access a shell inside the container
 - `./run_docker.sh status` - Check container status
+- `./run_docker.sh download-models` - Download required models (if the container is running)
 
 ## Implementation Details
 

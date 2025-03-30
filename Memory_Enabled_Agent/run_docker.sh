@@ -10,6 +10,7 @@
 #   logs      - View logs
 #   shell     - Access shell inside container
 #   status    - View container status
+#   download-models - Download models for NHS Virtual Assistant
 
 # Default command
 COMMAND=${1:-start}
@@ -56,9 +57,13 @@ case $COMMAND in
         echo "Container status:"
         docker-compose ps
         ;;
+    download-models)
+        echo "Downloading models for NHS Virtual Assistant..."
+        docker-compose exec nhs-agent python nhs_agents.py download-files || echo "Error: Is the container running? Try './run_docker.sh start' first."
+        ;;
     *)
         echo "Unknown command: $COMMAND"
-        echo "Usage: ./run_docker.sh [build|start|stop|restart|logs|shell|status]"
+        echo "Usage: ./run_docker.sh [build|start|stop|restart|logs|shell|status|download-models]"
         exit 1
         ;;
 esac

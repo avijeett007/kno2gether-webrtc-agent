@@ -1028,12 +1028,17 @@ def prewarm(proc: JobProcess):
         logger.warning(f"Failed to prewarm VAD model: {e}")
         proc.userdata["vad"] = None
     
-    # Try to load turn detector model, but make it optional
+    # Try to load turn detector model, but make it completely optional
     try:
         proc.userdata["turn_detector"] = turn_detector.EOUModel()
-        logger.info("Prewarmed turn detector model loaded")
+        logger.info("Prewarmed turn detector model loaded successfully")
     except Exception as e:
-        logger.warning(f"Failed to prewarm turn detector model: {e}. Will use default pause detection.")
+        logger.warning(f"Failed to load turn detector model: {e}")
+        logger.warning("===================================================================")
+        logger.warning("To download the required turn detector model files, run:")
+        logger.warning("python nhs_agents.py download-files")
+        logger.warning("===================================================================")
+        logger.warning("Agent will continue using default pause detection for turn detection")
         proc.userdata["turn_detector"] = None
 
 async def fetch_patient_data(nhs_number: str) -> Optional[PatientData]:
@@ -1162,16 +1167,14 @@ async def entrypoint(ctx: JobContext):
         text=system_prompt,
     )
     
-    # Create the voice pipeline agent without using turn detector
-    # This avoids the initialization failure related to the turn detector model
+    # Create the voice pipeline agent
     try:
-        # Try to create an optional turn detector if available
-        turn_detector_instance = None
-        try:
-            turn_detector_instance = turn_detector.EOUModel()
-            logger.info("Using EOUModel turn detector")
-        except Exception as e:
-            logger.warning(f"Could not initialize turn detector: {e}. Using default pause detection.")
+        # Use the turn detector from prewarm if available, otherwise None
+        turn_detector_instance = ctx.proc.userdata.get("turn_detector")
+        if turn_detector_instance:
+            logger.info("Using pre-loaded turn detector model")
+        else:
+            logger.info("Turn detector not available, using default pause detection")
             
         # Create the voice pipeline agent
         agent = VoicePipelineAgent(
@@ -1195,7 +1198,7 @@ async def entrypoint(ctx: JobContext):
             ),
             chat_ctx=initial_ctx,
             fnc_ctx=nhs_agent.function_context,
-            turn_detector=turn_detector_instance,  # This can be None if initialization failed
+            turn_detector=turn_detector_instance,  # Can be None if not available
             before_llm_cb=nhs_agent.before_llm_callback,
         )
         
@@ -1449,7 +1452,9 @@ def create_doctor_welcome(doctor_data: DoctorData) -> str:
 
 if __name__ == "__main__":
     # Run the LiveKit agent
-    logger.info("Starting NHS Virtual Assistant - using vector database only, no internet required")
+    # Download models with: python nhs_agents.py download-files
+    # Start agent with: python nhs_agents.py start
+    logger.info("Starting NHS Virtual Assistant")
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,

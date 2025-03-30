@@ -58,6 +58,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 # Create startup script
 RUN echo '#!/bin/bash\n\
+echo "Downloading required models (if not already downloaded)..."\n\
+python nhs_agents.py download-files || echo "WARNING: Model download failed, continuing anyway"\n\
 echo "Starting NHS Virtual Assistant..."\n\
 exec python nhs_agents.py start' > /app/start.sh && \
     chmod +x /app/start.sh
