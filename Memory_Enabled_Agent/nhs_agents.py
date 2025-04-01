@@ -25,6 +25,7 @@ import logging
 import datetime
 import json
 import requests
+import time
 from typing import List, Dict, Any, Optional, Annotated, Union
 
 # Load environment variables
@@ -576,7 +577,8 @@ Example:
                             # Exponential backoff: 1s, 2s, 4s, etc.
                             wait_time = 2 ** (retry_count - 1)
                             logger.warning(f"Cerebras API call failed (attempt {retry_count}/{max_retries}). Retrying in {wait_time}s: {str(retry_error)}")
-                            await asyncio.sleep(wait_time)
+                            # Use synchronous sleep instead of asyncio.sleep since this is not an async function
+                            time.sleep(wait_time)
                         else:
                             # Last attempt failed, re-raise
                             raise retry_error
@@ -1358,24 +1360,49 @@ def prewarm(proc: JobProcess):
     """Preload models for faster startup"""
     # Load VAD model for voice activity detection
     try:
+        logger.info("Loading VAD model...")
         proc.userdata["vad"] = silero.VAD.load()
-        logger.info("Prewarmed VAD model loaded")
+        logger.info("✅ VAD model loaded successfully")
     except Exception as e:
-        logger.warning(f"Failed to prewarm VAD model: {e}")
+        logger.warning(f"Failed to load VAD model: {e}")
+        logger.warning("Will attempt to load VAD model at runtime")
         proc.userdata["vad"] = None
     
     # Try to load turn detector model, but make it completely optional
     try:
+        logger.info("Loading turn detector model...")
         proc.userdata["turn_detector"] = turn_detector.EOUModel()
-        logger.info("Prewarmed turn detector model loaded successfully")
+        logger.info("✅ Turn detector model loaded successfully")
     except Exception as e:
         logger.warning(f"Failed to load turn detector model: {e}")
-        logger.warning("===================================================================")
-        logger.warning("To download the required turn detector model files, run:")
-        logger.warning("python nhs_agents.py download-files")
-        logger.warning("===================================================================")
-        logger.warning("Agent will continue using default pause detection for turn detection")
-        proc.userdata["turn_detector"] = None
+        
+        # Try an alternative approach for Docker environments
+        try:
+            import os
+            import sys
+            
+            # Directory where the model should be
+            model_dir = os.path.expanduser("~/.cache/livekit-plugins-turn-detector")
+            
+            # If the directory doesn't exist, create it
+            if not os.path.exists(model_dir):
+                os.makedirs(model_dir, exist_ok=True)
+                logger.info(f"Created model directory: {model_dir}")
+            
+            # Log available model files
+            if os.path.exists(model_dir):
+                files = os.listdir(model_dir)
+                logger.info(f"Files in model directory: {files}")
+            else:
+                logger.warning(f"Model directory does not exist: {model_dir}")
+            
+            logger.warning("Attempting to load turn detector model again...")
+            proc.userdata["turn_detector"] = turn_detector.EOUModel()
+            logger.info("✅ Turn detector model loaded on second attempt")
+        except Exception as e2:
+            logger.warning(f"Second attempt to load turn detector model failed: {e2}")
+            logger.warning("Agent will continue using default pause detection for turn detection")
+            proc.userdata["turn_detector"] = None
 
 async def fetch_patient_data(nhs_number: str) -> Optional[PatientData]:
     """Fetch patient data from the API"""

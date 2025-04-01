@@ -23,6 +23,15 @@ else
     echo "Warning: Cerebras SDK installation may have failed. Will fall back to OpenAI for knowledge base selection."
 fi
 
+# Download required models
+echo "Downloading required models..."
+python download_models.py
+if [ $? -eq 0 ]; then
+    echo "✅ Models downloaded successfully!"
+else
+    echo "⚠️ Some models failed to download. The agent may still work but with reduced functionality."
+fi
+
 # Print environment setup instructions
 echo ""
 echo "Setup completed successfully!"
