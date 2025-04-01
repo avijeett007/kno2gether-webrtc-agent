@@ -1,0 +1,35 @@
+# Core dependencies
+python-dotenv==1.0.1
+requests==2.32.0
+aiohttp==3.11.0
+
+# LiveKit and its components
+livekit==0.20.0
+livekit-agents==0.12.0
+livekit-api==0.8.2
+livekit-protocol==0.8.2
+
+# LiveKit plugins
+livekit-plugins-cartesia==0.4.9
+livekit-plugins-deepgram==0.6.14
+livekit-plugins-openai==0.10.10
+livekit-plugins-silero==0.1.0
+livekit-plugins-turn-detector==0.1.0
+livekit-plugins-rag==0.1.0
+
+# AI and ML dependencies
+openai==1.12.0
+cerebras_cloud_sdk==0.1.0
+torch==2.0.0
+numpy==1.24.0
+transformers==4.35.0
+
+# Vector database
+qdrant-client==1.7.0
+
+# Audio processing
+sounddevice==0.4.6
+
+# Utilities
+python-dateutil==2.8.2
+aiofile==3.9.0 

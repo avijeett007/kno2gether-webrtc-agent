@@ -549,23 +549,41 @@ Example:
                     api_key=os.environ.get("CEREBRAS_API_KEY")
                 )
                 
-                # Make the API request to Cerebras
-                response = cerebras_client.chat.completions.create(
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    model="llama3.3-70b",  # Use Llama 3.1 8B model for good performance at low cost
-                    response_format={"type": "json_object"}
-                )
+                # Try up to 3 times with increasing backoff
+                max_retries = 3
+                retry_count = 0
+                response_content = None
                 
-                # Extract response content
-                response_content = response.choices[0].message.content
-                logger.info(f"Cerebras response received: {len(response_content)} chars")
+                while retry_count < max_retries and response_content is None:
+                    try:
+                        # Make the API request to Cerebras
+                        response = cerebras_client.chat.completions.create(
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt}
+                            ],
+                            model="llama-3.3-70b",  # Use Llama 3.3 70B model for best results
+                            response_format={"type": "json_object"}
+                        )
+                        
+                        # Extract response content
+                        response_content = response.choices[0].message.content
+                        logger.info(f"Cerebras response received: {len(response_content)} chars")
+                        
+                    except Exception as retry_error:
+                        retry_count += 1
+                        if retry_count < max_retries:
+                            # Exponential backoff: 1s, 2s, 4s, etc.
+                            wait_time = 2 ** (retry_count - 1)
+                            logger.warning(f"Cerebras API call failed (attempt {retry_count}/{max_retries}). Retrying in {wait_time}s: {str(retry_error)}")
+                            await asyncio.sleep(wait_time)
+                        else:
+                            # Last attempt failed, re-raise
+                            raise retry_error
                 
             except Exception as cerebras_error:
                 # Fall back to OpenAI if Cerebras fails
-                logger.warning(f"Cerebras API failed, falling back to OpenAI: {str(cerebras_error)}")
+                logger.warning(f"Cerebras API failed after retries, falling back to OpenAI: {str(cerebras_error)}")
                 
                 # Use OpenAI as fallback
                 openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
