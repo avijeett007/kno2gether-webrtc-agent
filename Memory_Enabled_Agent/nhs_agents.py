@@ -7,6 +7,13 @@ This module implements a virtual assistant for NHS doctors and patients using Li
 - Medical knowledge base integration
 - API integration for patient and doctor data
 - Consent management for medical records
+- Cost-efficient AI for knowledge base selection using Cerebras
+- Fallback to OpenAI when needed
+
+Environment variables required:
+- OPENAI_API_KEY: For embeddings and fallback LLM
+- CEREBRAS_API_KEY: For cost-efficient knowledge base selection (optional, will fall back to OpenAI)
+- QDRANT_HOST, QDRANT_PORT, QDRANT_API_KEY: For vector storage
 
 Author: Avijit Sarkar (Modified version)
 """
@@ -46,6 +53,9 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 
 # OpenAI for embeddings
 from openai import OpenAI
+
+# Cerebras for knowledge base selection (cost-effective alternative)
+from cerebras.cloud.sdk import Cerebras
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -469,6 +479,142 @@ class KnowledgeBase:
     def __init__(self, knowledge_map=None):
         """Initialize with the appropriate knowledge base map based on user type"""
         self.knowledge_map = knowledge_map or DOCTOR_KNOWLEDGE_BASE_MAP
+        self._last_ai_analysis = {
+            "refined_query": "",
+            "selected_kb_ids": [],
+            "explanation": ""
+        }
+    
+    def ai_analyze_query(self, query: str) -> Dict[str, Any]:
+        """Use AI to analyze the query and determine most relevant knowledge bases
+        
+        Args:
+            query: The user's medical query or question
+            
+        Returns:
+            Dictionary containing:
+                - refined_query: Query optimized for vector search
+                - selected_kb_ids: List of relevant knowledge base IDs
+                - explanation: Brief explanation of knowledge base selection
+        """
+        try:
+            logger.info(f"AI analyzing query: {query[:50]}...")
+            
+            # Get the knowledgebases from the map
+            kb_map_key = next(iter(self.knowledge_map.keys()))
+            knowledgebases = self.knowledge_map[kb_map_key]["knowledgebases"]
+            
+            # Create a description of available knowledge bases for the model
+            kb_descriptions = []
+            for kb in knowledgebases:
+                kb_descriptions.append({
+                    "id": kb["id"],
+                    "domain": kb["domain"],
+                    "content": kb["content"],
+                    "document_title": kb.get("document_title", "Unknown")
+                })
+            
+            # Create prompt for the AI model
+            system_prompt = """You are an expert medical library assistant. Your job is to:
+1. Analyze medical queries to understand their core information needs
+2. Select the most relevant knowledge bases that would contain the answer
+3. Reformulate the query to be optimal for vector search retrieval
+4. Provide a brief explanation for your selections
+
+Select between 1-3 knowledge bases that are most likely to contain relevant information.
+If no knowledge bases are relevant, return an empty list.
+"""
+            
+            user_prompt = f"""Medical query: {query}
+
+Available knowledge bases:
+{json.dumps(kb_descriptions, indent=2)}
+
+Return your response as a JSON object with these fields:
+- refined_query: A reformulated version of the query optimized for vector search
+- selected_kb_ids: Array of IDs for the most relevant knowledge base(s), up to 3 max
+- explanation: Brief explanation of why these knowledge bases were selected
+
+Example:
+{{
+  "refined_query": "pathophysiology and management of vasoplegic shock in critical care",
+  "selected_kb_ids": ["nhs-demo_VasoplegicShockKnowledgeBase"],
+  "explanation": "The query is about vasoplegic shock management which directly matches this knowledge base."
+}}"""
+
+            # Use Cerebras instead of OpenAI for knowledge base selection (cost-effective)
+            try:
+                # Initialize Cerebras client (using API key from environment variable)
+                cerebras_client = Cerebras(
+                    api_key=os.environ.get("CEREBRAS_API_KEY")
+                )
+                
+                # Make the API request to Cerebras
+                response = cerebras_client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    model="llama3.3-70b",  # Use Llama 3.1 8B model for good performance at low cost
+                    response_format={"type": "json_object"}
+                )
+                
+                # Extract response content
+                response_content = response.choices[0].message.content
+                logger.info(f"Cerebras response received: {len(response_content)} chars")
+                
+            except Exception as cerebras_error:
+                # Fall back to OpenAI if Cerebras fails
+                logger.warning(f"Cerebras API failed, falling back to OpenAI: {str(cerebras_error)}")
+                
+                # Use OpenAI as fallback
+                openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+                response = openai_client.chat.completions.create(
+                    model="gpt-4o-mini",  # Using smaller model for speed and cost efficiency
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    response_format={"type": "json_object"}
+                )
+                response_content = response.choices[0].message.content
+                logger.info("Using OpenAI fallback for KB selection")
+            
+            # Parse response
+            response_json = json.loads(response_content)
+            
+            # Get required fields with defaults
+            refined_query = response_json.get("refined_query", query)
+            selected_kb_ids = response_json.get("selected_kb_ids", [])
+            explanation = response_json.get("explanation", "")
+            
+            # Log the result
+            logger.info(f"AI query analysis: Selected {len(selected_kb_ids)} knowledge bases for query")
+            if selected_kb_ids:
+                logger.info(f"Selected KBs: {selected_kb_ids}")
+                logger.info(f"Refined query: '{refined_query}'")
+                logger.info(f"Reason: {explanation}")
+            
+            # Store the analysis results as an instance attribute
+            result = {
+                "refined_query": refined_query,
+                "selected_kb_ids": selected_kb_ids,
+                "explanation": explanation
+            }
+            self._last_ai_analysis = result
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error in AI query analysis: {e}")
+            # Fall back to the original query and no knowledge bases
+            result = {
+                "refined_query": query,
+                "selected_kb_ids": [],
+                "explanation": "Error in AI analysis"
+            }
+            self._last_ai_analysis = result
+            return result
     
     def get_relevant_knowledge_bases(self, query: str) -> List[Dict[str, Any]]:
         """Get relevant knowledge base IDs based on query"""
@@ -525,6 +671,24 @@ class KnowledgeBase:
             logger.error(f"Error finding relevant knowledge bases: {e}")
             return []
     
+    def get_kb_info_by_id(self, kb_id: str) -> Dict[str, Any]:
+        """Get knowledge base info by ID"""
+        kb_map_key = next(iter(self.knowledge_map.keys()))
+        knowledgebases = self.knowledge_map[kb_map_key]["knowledgebases"]
+        
+        for kb in knowledgebases:
+            if kb["id"] == kb_id:
+                return {
+                    "id": kb["id"],
+                    "score": 10,  # Assign high score since it was selected by AI
+                    "domain": kb["domain"],
+                    "document_title": kb.get("document_title", ""),
+                    "document_name": kb.get("document_name", ""),
+                    "authors": kb.get("authors", "")
+                }
+        
+        return None
+    
     def query_knowledge_base(self, kb_info: Dict[str, Any], query: str, limit: int = 5) -> Dict[str, Any]:
         """Query a specific knowledge base collection"""
         collection_id = kb_info["id"]
@@ -580,32 +744,69 @@ class KnowledgeBase:
             return {"text": "", "source_info": kb_info, "score": 0}
     
     def get_comprehensive_knowledge(self, query: str) -> Dict[str, Any]:
-        """Get comprehensive knowledge from relevant sources"""
+        """Get comprehensive knowledge from relevant sources using AI for knowledge base selection"""
         try:
-            # Get relevant knowledge base details
-            kb_details = self.get_relevant_knowledge_bases(query)
+            # Use AI to analyze the query and select knowledge bases
+            ai_analysis = self.ai_analyze_query(query)
+            refined_query = ai_analysis["refined_query"]
+            selected_kb_ids = ai_analysis["selected_kb_ids"]
+            explanation = ai_analysis["explanation"]
             
-            # Query each knowledge base
             all_results = []
             sources_used = []
             
-            for kb_info in kb_details:
-                result = self.query_knowledge_base(kb_info, query)
-                if result["text"]:
-                    all_results.append({
-                        "text": result["text"],
-                        "score": result.get("score", 0),
-                        "source_info": result["source_info"]
-                    })
+            # Log the AI's decision
+            if selected_kb_ids:
+                logger.info(f"AI selected {len(selected_kb_ids)} knowledge bases for query: {query}")
+                logger.info(f"Refined query: {refined_query}")
+                logger.info(f"Explanation: {explanation}")
+                
+                # Query each selected knowledge base
+                for kb_id in selected_kb_ids:
+                    kb_info = self.get_kb_info_by_id(kb_id)
                     
-                    # Add source information
-                    source_info = result["source_info"]
-                    sources_used.append({
-                        "id": source_info["id"],
-                        "title": source_info.get("document_title", "Unknown"),
-                        "authors": source_info.get("authors", ""),
-                        "domain": source_info.get("domain", "")
-                    })
+                    if kb_info:
+                        result = self.query_knowledge_base(kb_info, refined_query)
+                        if result["text"]:
+                            all_results.append({
+                                "text": result["text"],
+                                "score": result.get("score", 0),
+                                "source_info": result["source_info"]
+                            })
+                            
+                            # Add source information
+                            source_info = result["source_info"]
+                            sources_used.append({
+                                "id": source_info["id"],
+                                "title": source_info.get("document_title", "Unknown"),
+                                "authors": source_info.get("authors", ""),
+                                "domain": source_info.get("domain", "")
+                            })
+            else:
+                # Fallback to traditional method if AI didn't select any knowledge bases
+                logger.info(f"AI didn't select any knowledge bases, falling back to keyword matching")
+                
+                # Get relevant knowledge base details using keyword matching
+                kb_details = self.get_relevant_knowledge_bases(query)
+                
+                # Query each knowledge base
+                for kb_info in kb_details:
+                    result = self.query_knowledge_base(kb_info, query)
+                    if result["text"]:
+                        all_results.append({
+                            "text": result["text"],
+                            "score": result.get("score", 0),
+                            "source_info": result["source_info"]
+                        })
+                        
+                        # Add source information
+                        source_info = result["source_info"]
+                        sources_used.append({
+                            "id": source_info["id"],
+                            "title": source_info.get("document_title", "Unknown"),
+                            "authors": source_info.get("authors", ""),
+                            "domain": source_info.get("domain", "")
+                        })
             
             if not all_results:
                 return {
@@ -878,11 +1079,23 @@ class NHSAgent:
                     # For doctor queries or patient medical queries, get relevant information from knowledgebase
                     if is_medical_query:
                         # This is likely a medical query
+                        logger.info(f"Processing medical query: {user_message[:50]}...")
+                        
+                        # Use AI-powered knowledge retrieval
                         knowledge_result = self.knowledge_base.get_comprehensive_knowledge(user_message)
                         knowledge_text = knowledge_result.get("text", "")
                         sources = knowledge_result.get("sources", [])
                         
                         if knowledge_text:
+                            # Get the AI explanation if available
+                            ai_explanation = ""
+                            try:
+                                # Try to access the AI analysis result
+                                if hasattr(self.knowledge_base, '_last_ai_analysis'):
+                                    ai_explanation = self.knowledge_base._last_ai_analysis.get("explanation", "")
+                            except:
+                                pass
+                                
                             # Format the knowledge text with source information
                             knowledge_context = f"Relevant medical information:\n{knowledge_text}\n\n"
                             
@@ -894,6 +1107,10 @@ class NHSAgent:
                                     authors = source.get("authors", "")
                                     domain = source.get("domain", "")
                                     knowledge_context += f"Source {idx+1}: {title} by {authors} ({domain})\n"
+                                
+                                # Add AI explanation if available
+                                if ai_explanation:
+                                    knowledge_context += f"\nReason for source selection: {ai_explanation}\n"
                             
                             context_parts.append(knowledge_context)
                             
@@ -1181,6 +1398,20 @@ async def fetch_doctor_data(registration_number: str) -> Optional[DoctorData]:
 async def entrypoint(ctx: JobContext):
     """Main entry point for the NHS LiveKit agent"""
     logger.info(f"Connecting to room {ctx.room.name}")
+    
+    # Check required API keys
+    openai_api_key = os.environ.get("OPENAI_API_KEY")
+    cerebras_api_key = os.environ.get("CEREBRAS_API_KEY")
+    
+    if not openai_api_key:
+        logger.error("OpenAI API key not set in environment variables")
+        ctx.error = "OpenAI API key not available. Please provide a valid API key."
+        return
+    
+    if not cerebras_api_key:
+        logger.warning("Cerebras API key not set. Will fall back to OpenAI for knowledge base selection.")
+    else:
+        logger.info("Using Cerebras for knowledge base selection")
     
     # Validate room name to determine user type
     user_type = validate_room_name(ctx.room.name)
