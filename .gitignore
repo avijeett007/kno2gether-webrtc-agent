@@ -5,3 +5,6 @@ venv/
 .env
 __pycache__/*
 
+Memory_Enabled_Agent/ __pycache__/*
+ __pycache__/*
+Memory_Enabled_Agent/__pycache__/nhs_agents.cpython-311.pyc

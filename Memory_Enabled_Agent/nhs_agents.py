@@ -37,6 +37,7 @@ from livekit.agents import (
 from livekit.agents.pipeline import VoicePipelineAgent
 from livekit.plugins import deepgram, openai, silero, turn_detector
 from livekit.plugins.cartesia import tts as cartesia_tts
+import livekit.rtc as rtc
 
 # Qdrant for vector storage
 from qdrant_client import QdrantClient
@@ -76,17 +77,8 @@ QDRANT_TLS = os.environ.get("QDRANT_TLS", "true").lower() == "true"
 # Knowledge base collections
 COMMON_KNOWLEDGE_COLLECTION = "patient_assessment_commonknowledgebase"
 
-# Create Qdrant client
-qdrant_client = QdrantClient(
-    url=QDRANT_HOST,
-    port=QDRANT_PORT,
-    api_key=QDRANT_API_KEY,
-    prefer_grpc=False,
-    https=QDRANT_TLS
-)
-
-# Knowledge base mapping
-KNOWLEDGE_BASE_MAP = {
+# Knowledge base maps for different user types
+DOCTOR_KNOWLEDGE_BASE_MAP = {
     "memory_map": {
         "knowledgebases": [
             {
@@ -180,6 +172,86 @@ KNOWLEDGE_BASE_MAP = {
         ]
     }
 }
+
+# Simplified knowledge base map for patients - using only common knowledge collection
+PATIENT_KNOWLEDGE_BASE_MAP = {
+    "memory_map": {
+        "knowledgebases": [
+            {
+                "id": "patient_assessment_generalanaestheticsrisksknowledgebase",
+                "domain": "Anaesthesia",
+                "content": "General anaesthetics risks and side effects: frequency of common side effects (shivering, nausea, sore throat), rare complications (dental damage, nerve injury, allergic reactions), and very rare risks (accidental awareness, visual loss, mortality rates), with statistical incidence data",
+                "document_name": "General-anaesthetics-Risks-and-side-effects",
+                "document_title": "General anaesthetics: Risks and side effects",
+                "authors": "Royal College of Anaesthetists (RCoA)",
+                "date": "2024"
+            },
+            {
+                "id": "patient_assessment_pediatricanaestheticsrisksknowledgebase",
+                "domain": "Pediatric Anaesthesia",
+                "content": "Common events and risks for children and young people having general anaesthesia: categorized by frequency (very common, common, uncommon, rare, very rare), including sore throat, behavioral changes, minor injuries, breathing problems, need for intensive care, anaphylaxis, and long-term risks",
+                "document_name": "Common-events-and-risks-for-children-and-young-people-having-a-general-anaesthetic",
+                "document_title": "Common events and risks for children and young people having a general anaesthetic",
+                "authors": "Royal College of Anaesthetists (RCoA) and Association of Paediatric Anaesthetists of Great Britain and Ireland",
+                "date": "2022-03"
+            },
+            {
+                "id": "medical_assessment_epiduralanaesthesiaknowledgebase",
+                "domain": "Regional Anaesthesia",
+                "content": "Epidural anaesthesia during and after surgery: explanation of procedure, benefits compared to other pain relief methods, contraindications, insertion technique, potential side effects and risks, and shared decision-making process",
+                "document_name": "Epidural-anaesthesia-during-and-after-surgery",
+                "document_title": "Epidural anaesthesia during and after surgery",
+                "authors": "Royal College of Anaesthetists (RCoA) and Association of Anaesthetists",
+                "date": "2023-06"
+            },
+            {
+                "id": "medical_assessment_accidentalawarenessknowledgebase",
+                "domain": "Anaesthesia",
+                "content": "Waking up during a general anaesthetic (accidental awareness): explanation of what it is, how likely it is to happen, what it feels like, causes, risk reduction strategies, and what to do if it happens including where to seek help and support",
+                "document_name": "Anaesthetics-risks-and-side-effects-Waking-up-during-a-general-anaesthetic",
+                "document_title": "Anaesthetics – risks and side effects: Waking up during a general anaesthetic (accidental awareness)",
+                "authors": "Leila Finikarides for the Royal College of Anaesthetists (RCoA)",
+                "date": "2024-11"
+            },
+            {
+                "id": "patient_assessment_anaestheticdeathseriousharmknowledgebase",
+                "domain": "Anaesthesia",
+                "content": "Death and serious harm risks during anaesthesia and surgery: mortality statistics, risk factors, mechanisms of serious harm (allergic reactions, airway problems, reduced blood supply), risk reduction strategies by anaesthetists and patients",
+                "document_name": "Anaesthetics-risks-and-side-effects-Death-and-serious-harm",
+                "document_title": "Anaesthetics – risks and side effects: Death and serious harm",
+                "authors": "Leila Finikarides for the Royal College of Anaesthetists (RCoA)",
+                "date": "2024-11"
+            },
+            {
+                "id": "patient_assessment_peripheralnerveblockdamageknowledgebase",
+                "domain": "Regional Anaesthesia",
+                "content": "Nerve damage after peripheral nerve blocks: symptoms, duration of effects, incidence rates for temporary and permanent damage, causes of nerve damage (needle trauma, vascular damage, medication effects), management, and treatment options",
+                "document_name": "Anaesthetics-risks-and-side-effects-Nerve-damage-after-a-peripheral-nerve-block",
+                "document_title": "Anaesthetics – risks and side effects: Nerve damage after a peripheral nerve block",
+                "authors": "Leila Finikarides for the Royal College of Anaesthetists (RCoA)",
+                "date": "2024-11"
+            },
+            {
+                "id": "patient_assessment_spinalanaesthesiaknowledgebase",
+                "domain": "Regional Anaesthesia",
+                "content": "Spinal anaesthesia: explanation of procedure, suitable operations, benefits compared to general anaesthesia, administration technique, patient experience during and after the procedure, recovery process, and shared decision-making",
+                "document_name": "Your-spinal-anaesthetic",
+                "document_title": "Your spinal anaesthetic",
+                "authors": "Royal College of Anaesthetists (RCoA), Association of Anaesthetists and RA-UK",
+                "date": "2023-04"
+            }
+        ]
+    }
+}
+
+# Create Qdrant client
+qdrant_client = QdrantClient(
+    url=QDRANT_HOST,
+    port=QDRANT_PORT,
+    api_key=QDRANT_API_KEY,
+    prefer_grpc=False,
+    https=QDRANT_TLS
+)
 
 class UserData:
     """Base class for user data"""
@@ -392,10 +464,11 @@ class VectorMemory:
             return ""
 
 class KnowledgeBase:
-    """Medical knowledge base integration using Qdrant vector database"""
+    """Vector database based medical knowledge retrieval system"""
     
-    def __init__(self):
-        self.knowledge_map = KNOWLEDGE_BASE_MAP
+    def __init__(self, knowledge_map=None):
+        """Initialize with the appropriate knowledge base map based on user type"""
+        self.knowledge_map = knowledge_map or DOCTOR_KNOWLEDGE_BASE_MAP
     
     def get_relevant_knowledge_bases(self, query: str) -> List[Dict[str, Any]]:
         """Get relevant knowledge base IDs based on query"""
@@ -405,7 +478,11 @@ class KnowledgeBase:
             query = query.lower()
             relevant_kbs = []
             
-            for kb in self.knowledge_map["memory_map"]["knowledgebases"]:
+            # Get the knowledgebases from whichever map is being used
+            kb_map_key = next(iter(self.knowledge_map.keys()))
+            knowledgebases = self.knowledge_map[kb_map_key]["knowledgebases"]
+            
+            for kb in knowledgebases:
                 # Check content and domain for keyword matches
                 content = kb["content"].lower()
                 domain = kb["domain"].lower()
@@ -443,7 +520,7 @@ class KnowledgeBase:
                 
             # Return top 3 knowledge base details
             return relevant_kbs[:3]
-            
+        
         except Exception as e:
             logger.error(f"Error finding relevant knowledge bases: {e}")
             return []
@@ -740,8 +817,13 @@ class NHSAgent:
         collection_name = f"{user_data.user_type}_{user_data.user_id.replace('-', '_')}"
         self.memory = VectorMemory(collection_name)
         
-        # Initialize knowledge base
-        self.knowledge_base = KnowledgeBase()
+        # Initialize knowledge base with appropriate map based on user type
+        if user_data.user_type == "patient":
+            logger.info(f"Using patient knowledge base map for user {user_data.user_id}")
+            self.knowledge_base = KnowledgeBase(PATIENT_KNOWLEDGE_BASE_MAP)
+        else:
+            logger.info(f"Using doctor knowledge base map for user {user_data.user_id}")
+            self.knowledge_base = KnowledgeBase(DOCTOR_KNOWLEDGE_BASE_MAP)
         
         # Initialize function context
         self.function_context = NHSFunctions(user_data, self.memory, self.knowledge_base)
@@ -989,7 +1071,7 @@ class NHSAgent:
             # Try to store the full conversation in memory for context continuity
             try:
                 success = self.memory.add_to_memory(
-                    text=conversation_text,
+                text=conversation_text,
                     metadata={
                         "type": "conversation_history", 
                         "user_id": self.user_data.user_id,
@@ -1008,6 +1090,25 @@ class NHSAgent:
             
         except Exception as e:
             logger.error(f"Error processing conversation: {e}")
+    
+    async def send_chat_message(self, room: rtc.Room, message: str):
+        """Send a chat message to all participants in the room"""
+        try:
+            if not room or not message:
+                logger.warning("Cannot send empty message or no room provided")
+                return False
+                
+            # Send message to all participants in the room
+            await room.local_participant.publish_data(message.encode('utf-8'), rtc.DataPacketKind.RELIABLE)
+            logger.info(f"Sent chat message: {message[:50]}...")
+            
+            # Add message to conversation history
+            self.add_agent_message(message)
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending chat message: {e}")
+            return False
 
 def validate_room_name(room_name: str) -> Union[str, None]:
     """Validate that the room name ends with one of the required suffixes"""
@@ -1091,7 +1192,7 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"Detected user type: {user_type}")
     
     # Connect to the room
-    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+    await ctx.connect(auto_subscribe=AutoSubscribe.SUBSCRIBE_ALL)
     
     # Wait for the first participant to connect
     participant = await ctx.wait_for_participant()
@@ -1175,7 +1276,7 @@ async def entrypoint(ctx: JobContext):
             logger.info("Using pre-loaded turn detector model")
         else:
             logger.info("Turn detector not available, using default pause detection")
-            
+        
         # Create the voice pipeline agent
         agent = VoicePipelineAgent(
             vad=ctx.proc.userdata.get("vad", silero.VAD.load()),
@@ -1201,8 +1302,13 @@ async def entrypoint(ctx: JobContext):
             turn_detector=turn_detector_instance,  # Can be None if not available
             before_llm_cb=nhs_agent.before_llm_callback,
         )
+
+        chat = rtc.ChatManager(ctx.room)
         
-        # Set up event handlers for recording messages
+        # Set response for both voice and chat
+        last_chat_message_id = None
+        
+        # Handle voice messages
         @agent.on("user_speech_committed")
         def on_user_speech_committed(msg: llm.ChatMessage):
             if isinstance(msg.content, list):
@@ -1217,9 +1323,65 @@ async def entrypoint(ctx: JobContext):
         
         @agent.on("agent_speech_committed")
         def on_agent_speech_committed(msg: llm.ChatMessage):
+            nonlocal last_chat_message_id
             content = msg.content
             logger.info(f"Agent speech committed: {content[:50]}...")
             nhs_agent.add_agent_message(content)
+            
+            # If this is a response to a chat message, also send it as a chat message
+            if last_chat_message_id is not None:
+                asyncio.create_task(nhs_agent.send_chat_message(ctx.room, content))
+                last_chat_message_id = None
+
+                
+        @chat.on("message_received")
+        def on_message_received(msg: rtc.ChatMessage):
+            if not msg.message or not msg.message.strip():
+                logger.warning(f"Empty chat message received, ignoring")
+                return
+            
+            logger.info(f"Chat message received : {msg.message}")
+            
+            # Set the message ID so we know to send the response as a chat message too
+            last_chat_message_id = msg.id
+            nhs_agent.add_user_message(msg.message)
+            logger.info(f"Added chat message to conversation history: {msg.message[:50]}...")
+
+            # Generate reply
+            logger.info("Generating reply to chat message...")
+            agent.generate_reply()
+            logger.info("Response generation triggered from chat message")
+                
+       
+                   
+        
+
+        # Handle chat messages (text-based chat)
+        @ctx.room.on("message_received")
+        def on_message_received(msg: rtc.ChatMessage):
+            try:
+                nonlocal last_chat_message_id
+                sender = msg.sender_sid or "unknown"
+                if not msg.message or not msg.message.strip():
+                    logger.warning(f"Empty chat message received from {sender}, ignoring")
+                    return
+                    
+                logger.info(f"Chat message received from {sender}: {msg.message}")
+                
+                # Set the message ID so we know to send the response as a chat message too
+                last_chat_message_id = msg.id
+                
+                # Add message to chat context
+                nhs_agent.add_user_message(msg.message)
+                logger.info(f"Added chat message to conversation history: {msg.message[:50]}...")
+                
+                # Generate reply
+                logger.info("Generating reply to chat message...")
+                agent.generate_reply()
+                logger.info("Response generation triggered from chat message")
+            except Exception as e:
+                logger.error(f"Error handling chat message: {e}")
+                # Try to recover and continue
         
         # Set up metrics collection
         usage_collector = metrics.UsageCollector()
@@ -1322,7 +1484,7 @@ def create_patient_system_prompt(patient_data: PatientData) -> str:
         f"\n- Your knowledge comes exclusively from vector database collections of medical literature"
         f"\n- You do not have internet access and cannot search online for information"
         f"\n- You can only reference documents that are explicitly provided in your context"
-        f"\n- When you don't know something, state clearly that you don't have that information in your knowledge base"
+        f"\n- When you don't know something, or cannot find the information from knowledge base, state clearly that you don't have that information in your knowledge base"
         f"\n- Never make up information or cite documents that aren't specified in your context"
         f"\n- Translate complex medical information into patient-friendly language while maintaining accuracy"
         
