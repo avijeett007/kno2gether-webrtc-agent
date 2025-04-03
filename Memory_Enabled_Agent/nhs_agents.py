@@ -1152,21 +1152,21 @@ Example:
                 kb_details = self.get_relevant_knowledge_bases(query)
                 
                 # Query each knowledge base
-                for kb_info in kb_details:
-                    result = self.query_knowledge_base(kb_info, query)
-                    if result["text"]:
-                        all_results.append({
-                            "text": result["text"],
-                            "score": result.get("score", 0),
-                            "source_info": result["source_info"]
-                        })
-                        
+            for kb_info in kb_details:
+                result = self.query_knowledge_base(kb_info, query)
+                if result["text"]:
+                    all_results.append({
+                        "text": result["text"],
+                        "score": result.get("score", 0),
+                        "source_info": result["source_info"]
+                    })
+                    
                         # Add source information directly from knowledge map
-                        source_info = result["source_info"]
+                    source_info = result["source_info"]
                         source_entry = {
-                            "id": source_info["id"],
-                            "title": source_info.get("document_title", "Unknown"),
-                            "domain": source_info.get("domain", "")
+                        "id": source_info["id"],
+                        "title": source_info.get("document_title", "Unknown"),
+                        "domain": source_info.get("domain", "")
                         }
                         
                         # Only add authors if they exist in the knowledge map
@@ -1756,8 +1756,8 @@ class NHSAgent:
                 return
             
             # Add to last user message cache for context
-            self.last_user_message = user_message
-            
+                    self.last_user_message = user_message
+                    
             # Reset knowledge tracking for this query
             self.knowledge_found = False
             self.last_query_sources = []
@@ -1782,9 +1782,9 @@ class NHSAgent:
                     # 2. Add memory context only for non-medical queries
                     if not is_medical_query:
                         memory_context = self.memory.query_memory(user_message)
-                        if memory_context:
+                    if memory_context:
                             context_parts.append(f"Relevant information from previous conversations:\n{memory_context}")
-                            
+                    
                             # Log memory retrieval
                             await self.file_logger.log_memory_retrieval(user_message, memory_context)
                     
@@ -2126,9 +2126,9 @@ class NHSAgent:
                 
                 # Prepare metadata for memory storage
                 memory_metadata = {
-                    "type": "conversation_history", 
-                    "user_id": self.user_data.user_id,
-                    "user_type": self.user_data.user_type,
+                        "type": "conversation_history", 
+                        "user_id": self.user_data.user_id,
+                        "user_type": self.user_data.user_type,
                     "timestamp": datetime.datetime.now().isoformat(),
                     "message_count": len(self.conversation_history),
                     "topics": topics[:3]  # Store up to 3 topics
@@ -2263,8 +2263,8 @@ def prewarm(proc: JobProcess):
             logger.info("✅ Turn detector model loaded on second attempt")
         except Exception as e2:
             logger.warning(f"Second attempt to load turn detector model failed: {e2}")
-            logger.warning("Agent will continue using default pause detection for turn detection")
-            proc.userdata["turn_detector"] = None
+        logger.warning("Agent will continue using default pause detection for turn detection")
+        proc.userdata["turn_detector"] = None
 
 async def fetch_patient_data(nhs_number: str) -> Optional[PatientData]:
     """Fetch patient data from the API"""
@@ -2463,7 +2463,7 @@ async def entrypoint(ctx: JobContext):
         def on_agent_speech_committed(msg: llm.ChatMessage):
             """Handler for agent speech commit events"""
             try:
-                nonlocal last_chat_message_id
+            nonlocal last_chat_message_id
                 logger.info(f"Agent response: {msg.content[:100]}...")
                 
                 # Validate the response for proper citation
@@ -2485,8 +2485,8 @@ async def entrypoint(ctx: JobContext):
                     
                     # Regenerate the response
                     agent.generate_reply(with_prefix=warning_msg)
-                    return
-                
+                return
+            
                 # Add to conversation history if the response is valid
                 asyncio.create_task(nhs_agent.add_agent_message(msg.content))
                 
@@ -2522,7 +2522,7 @@ async def entrypoint(ctx: JobContext):
                 # Generate reply
                 agent.generate_reply()
                 logger.info("Response generation created")
-        
+
         # Handle chat messages (text-based chat)
         @ctx.room.on("message_received")
         def on_message_received(msg: rtc.ChatMessage):
@@ -2738,7 +2738,7 @@ def create_patient_system_prompt(patient_data: PatientData) -> str:
         f"\n4. Consent First - Always ask for explicit consent before accessing or discussing personal medical records."
         f"\n5. Source Citation - For EVERY medical claim or statement, explicitly cite the source document and authors (if available)."
         f"\n6. Limitations - Be clear about your limitations. You cannot diagnose, prescribe medication, or schedule appointments."
-
+        
         f"\n\nCitation Requirements:"
         f"\n- For ANY medical or clinical information, you MUST cite the specific document source"
         f"\n- Use the format: 'According to [Document Title],...' or 'According to [Document Title] by [Authors],...' if author information is available"

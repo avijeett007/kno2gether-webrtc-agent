@@ -51,6 +51,50 @@ MODEL_NAME=gpt-4o-mini
 python memoryAgent.py
 ```
 
+### Supabase Setup (for OYOS Agent)
+
+If you're using the OYOS agent with Supabase for goals tracking and customizable settings, follow these steps:
+
+1. Create a Supabase account and project at https://supabase.com/
+2. In your Supabase project, create the following tables:
+
+#### Goals Table
+- Table name: `goals`
+- Columns:
+  - `id`: uuid (Primary Key, Default: uuid_generate_v4())
+  - `user_email`: text (Not Null)
+  - `description`: text (Not Null)
+  - `goal_type`: text (Not Null)
+  - `status`: text (Not Null)
+  - `created_at`: timestamptz (Not Null)
+  - `last_updated`: timestamptz (Not Null)
+
+#### Agent Settings Table
+- Table name: `agent_settings`
+- Columns:
+  - `id`: uuid (Primary Key, Default: uuid_generate_v4())
+  - `name`: text (Not Null)
+  - `agent_type`: text (Not Null)
+  - `setting_type`: text (Not Null)
+  - `value`: jsonb (Not Null)
+  - `is_active`: boolean (Not Null, Default: true)
+  - `created_at`: timestamptz (Not Null, Default: now())
+  - `updated_at`: timestamptz (Not Null, Default: now())
+
+3. Add the following indexes (optional but recommended):
+  - `goals_user_email_idx` ON goals (user_email)
+  - `goals_status_idx` ON goals (status)
+  - `agent_settings_agent_type_idx` ON agent_settings (agent_type)
+  - `agent_settings_is_active_idx` ON agent_settings (is_active)
+  - `agent_settings_setting_type_idx` ON agent_settings (setting_type)
+
+4. Run the Supabase setup script:
+```bash
+python setup_supabase.py --url YOUR_SUPABASE_URL --key YOUR_SUPABASE_API_KEY
+```
+
+This will populate the tables with default settings for DISC and coaching agents.
+
 ## Architecture
 
 The system consists of several key components:

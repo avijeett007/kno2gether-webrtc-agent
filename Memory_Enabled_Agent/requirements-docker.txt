@@ -27,6 +27,9 @@ transformers==4.35.0
 # Vector database
 qdrant-client==1.7.0
 
+# Database integrations
+supabase==2.0.0
+
 # Audio processing
 sounddevice==0.4.6
 
