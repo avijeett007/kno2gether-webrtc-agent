@@ -30,6 +30,7 @@ import asyncio
 import datetime
 import uuid
 import aiohttp
+import sys
 from typing import List, Dict, Any, Optional, Annotated, Union, Tuple
 
 # Load environment variables
@@ -196,32 +197,32 @@ Remember:
 - Never mention the background processing
 - Adapt questions based on responses received""",
 
-            "coach": """You are an expert professional coach with deep expertise in multiple coaching domains, including Leadership, Executive, Performance, Career, Team, Business, Agile, Well-being, and DEI Coaching. You guide users using evidence-based coaching models such as T-GROW, SMART goal-setting, OKRs, Agile frameworks, and Cognitive Behavioral Coaching.
+            "coach": """You're an experienced professional coach with a warm, thoughtful style. You've coached hundreds of people through career transitions, leadership challenges, team dynamics, and personal growth. Think of yourself as that trusted mentor who asks just the right questions to help people find their own answers.
 
-Voice Optimized Communication Guidelines:
-- Use short, clear sentences with proper punctuation
-- Add natural pauses with '...'
-- Use verbal backchanneling ('mm-hmm', 'I see', 'right', 'got it')
-- Never produce emojis or non-text symbols
-- Express dates in MM/DD/YYYY format
-- Keep responses concise and conversational
+Speak naturally, as if having coffee with a colleague you respect. Use casual language like "Let's explore that a bit" or "I'm wondering what would happen if..." rather than formal coaching terminology. Your goal is conversation, not interrogation.
 
-Your coaching approach:
-1. Use structured coaching models to break down challenges
-2. Ask deep, reflective questions to help users gain clarity
-3. Challenge assumptions and biases where needed
-4. Provide actionable insights and exercises when applicable
-5. Adapt your coaching style based on responses
-6. Help set clear, measurable goals
-7. Track progress against goals over time
-8. Maintain professional boundaries while being supportive
+When coaching, you:
+- Listen first, speak second - give people room to process their thoughts
+- Use gentle prompts like "Tell me more about that" or "What's beneath that feeling?"
+- Share occasional brief stories or metaphors when they illuminate a point
+- Acknowledge emotions with phrases like "That sounds really challenging" or "I can hear how excited you are"
+- Check understanding with "So what I'm hearing is..." or "Let me see if I'm following you..."
+- Ask open questions that begin with "how," "what," or "in what ways" rather than closed yes/no questions
+- Occasionally use thoughtful silence (indicated by "...") to give space for reflection
+- Gently challenge with phrases like "I'm curious about..." or "I wonder if there's another perspective..."
 
-Remember to:
-- Use the user's name occasionally
-- Refer to previous conversations when relevant (available in context)
-- Track goals and commitments
-- Ask follow-up questions to deepen understanding
-- End sessions with clear takeaways and next steps"""
+Personality traits that make you unique:
+- You occasionally use light humor to build rapport
+- You're pragmatic - theory is useful, but real-world application matters more
+- You genuinely believe people have their own answers - your job is drawing them out
+- You speak with warmth and genuine curiosity, not clinical detachment
+- You occasionally share brief reflections from your coaching experience (without naming names)
+- You use casual transitions like "by the way," "you know," or "actually" that make conversation flow
+- You validate progress with specific observations: "I noticed how you just reframed that problem"
+
+Behind the scenes, you're drawing on coaching frameworks like GROW and evidence-based approaches, but you don't mention these explicitly. Your questions and reflections naturally guide people through awareness, exploration, and action planning.
+
+Remember to use the person's name occasionally, refer to things they've shared before, and track their goals. End conversations with a sense of clarity and forward movement."""
         }
         
         if not self.has_supabase:
@@ -236,15 +237,39 @@ Remember to:
             if response.data:
                 # Use the most recently updated system prompt
                 prompt_data = sorted(response.data, key=lambda x: x.get("updated_at", ""), reverse=True)[0]
-                prompt_value = json.loads(prompt_data.get("value", "{}")).get("prompt", "")
+                
+                # Fix: Handle the value field correctly based on its type
+                value_field = prompt_data.get("value", "{}")
+                prompt_value = ""
+                
+                logger.info(f"Value field type for system prompt: {type(value_field)}")
+                
+                if isinstance(value_field, dict):
+                    # If already a dictionary, use directly
+                    prompt_value = value_field.get("prompt", "")
+                    logger.info("Using dictionary value directly for system prompt")
+                else:
+                    try:
+                        # If it's a string (JSON), parse it
+                        logger.info(f"Attempting to parse JSON string for system prompt: {value_field[:50]}...")
+                        parsed_value = json.loads(value_field)
+                        prompt_value = parsed_value.get("prompt", "")
+                    except (json.JSONDecodeError, TypeError) as e:
+                        logger.error(f"Error parsing system prompt value: {e}")
+                        logger.error(f"Problem value (truncated): {str(value_field)[:100]}")
+                        prompt_value = ""
                 
                 if prompt_value:
                     logger.info(f"Loaded system prompt for {agent_type} agent from Supabase")
                     self.cached_settings[cache_key] = prompt_value
                     return prompt_value
-                
-            # Fall back to default if not found
-            logger.warning(f"No active system prompt found for {agent_type} agent. Using default.")
+                else:
+                    logger.warning(f"Empty system prompt retrieved for {agent_type} agent. Using default.")
+            else:
+                logger.warning(f"No active system prompt found for {agent_type} agent. Using default.")
+            
+            # Fall back to default if not found or empty
+            logger.info(f"Using default system prompt for {agent_type} agent")
             self.cached_settings[cache_key] = default_prompts.get(agent_type, "")
             return self.cached_settings[cache_key]
             
@@ -275,7 +300,7 @@ Remember to:
             "disc": {
                 "provider": "cartesia",
                 "model": "sonic",
-                "voice_id": "c2ac25f9-ecc4-4f56-9095-651354df60c0",
+                "voice_id": "57b6bf63-c7a1-4ffc-8e10-23bf45152dd6",
                 "emotion": ["curiosity:highest", "positivity:high"],
                 "speed": "normal"
             },
@@ -300,15 +325,38 @@ Remember to:
             if response.data:
                 # Use the most recently updated configuration
                 config_data = sorted(response.data, key=lambda x: x.get("updated_at", ""), reverse=True)[0]
-                config_value = json.loads(config_data.get("value", "{}"))
+                
+                # Fix: Handle the value field correctly based on its type
+                value_field = config_data.get("value", "{}")
+                config_value = {}
+                
+                logger.info(f"Value field type for TTS config: {type(value_field)}")
+                
+                if isinstance(value_field, dict):
+                    # If already a dictionary, use directly
+                    config_value = value_field
+                    logger.info("Using dictionary value directly for TTS config")
+                else:
+                    try:
+                        # If it's a string (JSON), parse it
+                        logger.info(f"Attempting to parse JSON string for TTS config: {value_field[:50]}...")
+                        config_value = json.loads(value_field)
+                    except (json.JSONDecodeError, TypeError) as e:
+                        logger.error(f"Error parsing TTS config value: {e}")
+                        logger.error(f"Problem value (truncated): {str(value_field)[:100]}")
+                        config_value = {}
                 
                 if config_value:
                     logger.info(f"Loaded TTS configuration for {agent_type} agent from Supabase")
                     self.cached_settings[cache_key] = config_value
                     return config_value
-                
-            # Fall back to default if not found
-            logger.warning(f"No active TTS configuration found for {agent_type} agent. Using default.")
+                else:
+                    logger.warning(f"Empty TTS configuration retrieved for {agent_type} agent. Using default.")
+            else:
+                logger.warning(f"No active TTS configuration found for {agent_type} agent. Using default.")
+            
+            # Fall back to default if not found or empty
+            logger.info(f"Using default TTS configuration for {agent_type} agent")
             self.cached_settings[cache_key] = default_configs.get(agent_type, {})
             return self.cached_settings[cache_key]
             
@@ -337,18 +385,18 @@ Remember to:
         # Default LLM configurations
         default_configs = {
             "disc": {
-                "provider": "cerebras",
-                "model": "llama-3.3-70b",
-                "fallback_provider": "openai",
-                "fallback_model": "gpt-4o-mini",
-                "temperature": 0.7,
-                "max_tokens": 1024
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "fallback_provider": "cerebras",
+                "fallback_model": "llama-3.3-70b",
+                "temperature": 0.7
             },
             "coach": {
                 "provider": "openai",
                 "model": "gpt-4o-mini",
-                "temperature": 0.7,
-                "max_tokens": 1024
+                "fallback_provider": "cerebras",
+                "fallback_model": "llama-3.3-70b",
+                "temperature": 0.7
             }
         }
         
@@ -364,15 +412,30 @@ Remember to:
             if response.data:
                 # Use the most recently updated configuration
                 config_data = sorted(response.data, key=lambda x: x.get("updated_at", ""), reverse=True)[0]
-                config_value = json.loads(config_data.get("value", "{}"))
+                
+                # Fix: Handle the value field correctly based on its type
+                value_field = config_data.get("value", "{}")
+                if isinstance(value_field, dict):
+                    # If already a dictionary, use directly
+                    config_value = value_field
+                else:
+                    try:
+                        # If it's a string (JSON), parse it
+                        config_value = json.loads(value_field)
+                    except (json.JSONDecodeError, TypeError) as e:
+                        logger.error(f"Error parsing LLM config value: {value_field}, Error: {e}")
+                        config_value = {}
                 
                 if config_value:
                     logger.info(f"Loaded LLM configuration for {agent_type} agent from Supabase")
                     self.cached_settings[cache_key] = config_value
                     return config_value
-                
-            # Fall back to default if not found
-            logger.warning(f"No active LLM configuration found for {agent_type} agent. Using default.")
+                else:
+                    logger.warning(f"Empty LLM configuration for {agent_type} agent. Using default.")
+            else:
+                logger.warning(f"No active LLM configuration found for {agent_type} agent. Using default.")
+            
+            # Fall back to default if not found or empty
             self.cached_settings[cache_key] = default_configs.get(agent_type, {})
             return self.cached_settings[cache_key]
             
@@ -678,6 +741,69 @@ class DISCAssessmentFunctions(llm.FunctionContext):
         """Process the DISC assessment"""
         logger.info(f"Processing DISC assessment with status: {conversation_status}")
         return "Thanks for completing the DISC assessment! Our team will process your results and send them to your email shortly."
+
+class CoachingFunctions(llm.FunctionContext):
+    """Function context for professional coaching agent"""
+    
+    @llm.ai_callable(
+        description="Record a goal that the user wants to work on."
+    )
+    async def record_goal(
+        self,
+        description: Annotated[
+            str,
+            llm.TypeInfo(
+                description="Description of the goal"
+            )
+        ],
+        goal_type: Annotated[
+            str,
+            llm.TypeInfo(
+                description="Type of goal (e.g., 'professional', 'personal', 'leadership', 'communication')"
+            )
+        ] = "professional"
+    ) -> str:
+        """Record a new goal for the user"""
+        logger.info(f"Recording goal: {description} (type: {goal_type})")
+        return f"I've recorded your goal to {description}. We'll track your progress on this {goal_type} goal in our sessions."
+
+    @llm.ai_callable(
+        description="Mark a previously recorded goal as complete."
+    )
+    async def complete_goal(
+        self,
+        goal_description: Annotated[
+            str,
+            llm.TypeInfo(
+                description="Description of the goal to mark as complete (use the exact wording from when it was recorded)"
+            )
+        ]
+    ) -> str:
+        """Mark a goal as complete"""
+        logger.info(f"Marking goal as complete: {goal_description}")
+        return f"Congratulations on completing your goal to {goal_description}! It's important to celebrate these accomplishments."
+
+    @llm.ai_callable(
+        description="Record an action item or next step that the user commits to."
+    )
+    async def record_action_item(
+        self,
+        description: Annotated[
+            str,
+            llm.TypeInfo(
+                description="Description of the action item"
+            )
+        ],
+        due_date: Annotated[
+            str,
+            llm.TypeInfo(
+                description="When the action item should be completed by (can be a specific date or general timeframe)"
+            )
+        ] = "next session"
+    ) -> str:
+        """Record an action item for the user"""
+        logger.info(f"Recording action item: {description} (due: {due_date})")
+        return f"I've noted your commitment to {description} by {due_date}. We can follow up on this in our next conversation."
 
 class ProfessionalCoachAgent:
     """Professional coaching voice agent with memory"""
@@ -1128,7 +1254,7 @@ async def entrypoint(ctx: JobContext):
         await setup_coach_agent(ctx, participant, user_data)
 
 async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_data: UserData):
-    """Set up DISC assessment agent"""
+    """Set up the DISC assessment agent"""
     logger.info(f"Setting up DISC assessment agent for {user_data.full_name if user_data.full_name else user_data.user_id}")
     
     # Initialize DISC agent
@@ -1161,14 +1287,44 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
         text=system_prompt,
     )
     
-    # Create the voice pipeline agent
+    # Add before_tts_callback to clean up special characters before TTS processing
+    async def before_tts_callback(assistant: VoicePipelineAgent, text: str) -> str:
+        """Clean up text before sending to TTS for better pronunciation"""
+        # Remove markdown formatting (bold, italic, etc.)
+        text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # Remove bold (**text**)
+        text = re.sub(r'\*(.*?)\*', r'\1', text)      # Remove italic (*text*)
+        text = re.sub(r'__(.*?)__', r'\1', text)      # Remove underline (__text__)
+        text = re.sub(r'```(.*?)```', r'\1', text, flags=re.DOTALL)  # Remove code blocks
+        
+        # Remove other special characters that don't work well in voice
+        text = re.sub(r'[#`~>]', '', text)           # Remove specific special chars
+        text = re.sub(r'\n+', ' ', text)             # Replace multiple newlines with space
+        text = re.sub(r'\s+', ' ', text)             # Replace multiple spaces with single space
+        
+        # Fix pronunciation of technical terms
+        replacements = {
+            "DISC": "D I S C",
+            "LiveKit": "Live Kit",
+            "OYOS": "O Y O S",
+            "API": "A P I",
+            "URL": "U R L"
+        }
+        
+        for term, pronunciation in replacements.items():
+            text = re.sub(r'\b' + re.escape(term) + r'\b', pronunciation, text)
+            
+        return text
+    
+    # Variable to track if agent creation was successful
+    agent = None
+    
     try:
         # Set up TTS configuration based on settings
         tts_provider = tts_config.get("provider", "cartesia")
         if tts_provider == "cartesia":
             tts = cartesia_tts.TTS(
                 model=tts_config.get("model", "sonic"),
-                voice=tts_config.get("voice_id", "c2ac25f9-ecc4-4f56-9095-651354df60c0"),
+                voice=tts_config.get("voice_id", "57b6bf63-c7a1-4ffc-8e10-23bf45152dd6"),
                 emotion=tts_config.get("emotion", ["curiosity:highest", "positivity:high"]),
                 speed=tts_config.get("speed", "normal")
             )
@@ -1177,18 +1333,23 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
             logger.warning(f"Unsupported TTS provider: {tts_provider}. Using Cartesia as fallback.")
             tts = cartesia_tts.TTS(
                 model="sonic",
-                voice="c2ac25f9-ecc4-4f56-9095-651354df60c0",
+                voice="57b6bf63-c7a1-4ffc-8e10-23bf45152dd6",
                 emotion=["curiosity:highest", "positivity:high"]
             )
         
         # Set up LLM based on settings
-        llm_provider = llm_config.get("provider", "cerebras")
-        if llm_provider == "cerebras":
+        llm_provider = llm_config.get("provider", "openai")
+        if llm_provider == "openai":
+            llm_model = openai.LLM(
+                model=llm_config.get("model", "gpt-4o-mini"),
+                temperature=llm_config.get("temperature", 0.7)
+            )
+            logger.info("Using OpenAI for LLM")
+        elif llm_provider == "cerebras":
             try:
                 llm_model = openai.LLM.with_cerebras(
                     model=llm_config.get("model", "llama-3.3-70b"),
-                    temperature=llm_config.get("temperature", 0.7),
-                    max_tokens=llm_config.get("max_tokens", 1024)
+                    temperature=llm_config.get("temperature", 0.7)
                 )
                 logger.info("Using Cerebras for LLM")
             except Exception as e:
@@ -1198,16 +1359,8 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
                 logger.warning(f"Failed to initialize Cerebras LLM: {e}, falling back to {fallback_provider}")
                 llm_model = openai.LLM(
                     model=fallback_model,
-                    temperature=llm_config.get("temperature", 0.7),
-                    max_tokens=llm_config.get("max_tokens", 1024)
+                    temperature=llm_config.get("temperature", 0.7)
                 )
-        elif llm_provider == "openai":
-            llm_model = openai.LLM(
-                model=llm_config.get("model", "gpt-4o-mini"),
-                temperature=llm_config.get("temperature", 0.7),
-                max_tokens=llm_config.get("max_tokens", 1024)
-            )
-            logger.info("Using OpenAI for LLM")
         else:
             # Fallback to OpenAI if provider not recognized
             logger.warning(f"Unsupported LLM provider: {llm_provider}. Using OpenAI as fallback.")
@@ -1229,28 +1382,45 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
             fnc_ctx=function_context,
             turn_detector=ctx.proc.userdata.get("turn_detector")
         )
+        
+        # Make sure we set the callback even in the fallback case
+        agent.before_tts_cb = before_tts_callback
     except Exception as e:
         logger.error(f"Failed to create voice pipeline agent: {e}")
         # Fallback to basic configuration
-        agent = VoicePipelineAgent(
-            vad=ctx.proc.userdata.get("vad", silero.VAD.load()),
-            stt=deepgram.STT(
-                model="nova-2-general",
-                interim_results=True,
-                smart_format=True,
-                punctuate=True,
-                language="en-US",
-            ),
-            tts=cartesia_tts.TTS(
-                model="sonic",
-                voice="c2ac25f9-ecc4-4f56-9095-651354df60c0",
-                emotion=["curiosity:highest", "positivity:high"]
-            ),
-            llm=openai.LLM(model="gpt-4o-mini"),
-            chat_ctx=initial_ctx,
-            fnc_ctx=function_context,
-            turn_detector=ctx.proc.userdata.get("turn_detector")
-        )
+        try:
+            agent = VoicePipelineAgent(
+                vad=ctx.proc.userdata.get("vad", silero.VAD.load()),
+                stt=deepgram.STT(
+                    model="nova-2-general",
+                    interim_results=True,
+                    smart_format=True,
+                    punctuate=True,
+                    language="en-US",
+                ),
+                tts=cartesia_tts.TTS(
+                    model="sonic",
+                    voice="57b6bf63-c7a1-4ffc-8e10-23bf45152dd6",
+                    emotion=["curiosity:highest", "positivity:high"]
+                ),
+                llm=openai.LLM(model="gpt-4o-mini"),
+                chat_ctx=initial_ctx,
+                fnc_ctx=function_context,
+                turn_detector=ctx.proc.userdata.get("turn_detector")
+            )
+            
+            # Make sure we set the callback even in the fallback case
+            agent.before_tts_cb = before_tts_callback
+        except Exception as e:
+            logger.error(f"Failed to create fallback agent: {e}")
+            ctx.error = f"Failed to create agent: {e}"
+            return
+    
+    # Safety check
+    if agent is None:
+        logger.error("Failed to create agent - agent is None")
+        ctx.error = "Failed to create agent - agent is None"
+        return
     
     # Set up metrics collection
     usage_collector = metrics.UsageCollector()
@@ -1300,10 +1470,14 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
             asyncio.create_task(disc_agent.process_disc_summary())
     
     # Start the agent
-    agent.start(ctx.room, participant)
-    
-    # Send initial greeting
-    await agent.say(initial_message, allow_interruptions=True)
+    try:
+        await agent.start(ctx.room, participant)
+        # Send initial message
+        await agent.send_message(initial_message)
+    except Exception as e:
+        logger.error(f"Error starting agent or sending initial message: {e}")
+        ctx.error = f"Error starting agent: {e}"
+        return
     
     # Set up auto-disconnect after timeout
     async def disconnect_after_timeout():
@@ -1329,40 +1503,22 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
     logger.info(f"DISC session usage summary: {summary}")
 
 async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_data: UserData):
-    """Set up Professional Coaching agent"""
-    logger.info(f"Setting up Professional Coach agent for {user_data.full_name if user_data.full_name else user_data.user_id}")
+    """Set up the professional coach agent"""
+    logger.info(f"Setting up professional coach agent for {user_data.full_name if user_data.full_name else user_data.user_id}")
     
-    # Initialize coach agent
+    # Initialize professional coach agent
     coach_agent = ProfessionalCoachAgent(user_data)
     
+    # Initialize function context
+    function_context = CoachingFunctions()
+    
     # Create greeting based on user data
-    greeting = f"Hello {user_data.full_name}!" if user_data.full_name else "Hello!"
-    
-    # Get information to personalize the welcome
-    coaching_type = user_data.coaching_type if user_data.coaching_type else "professional"
-    goal = user_data.goal if user_data.goal else ""
-    
+    greeting = f"Hi {user_data.full_name}!" if user_data.full_name else "Hi there!"
     initial_message = (
-        f"{greeting} I'm your {coaching_type} coach from OYOS. "
+        f"{greeting} I'm Jenni, your professional coach at OYOS. "
+        "I'm here to support your personal and professional development. "
+        f"{'How are you today?' if user_data.full_name else 'Could you start by telling me your name?'}"
     )
-    
-    if goal:
-        initial_message += f"I understand your goal is to {goal}. "
-    
-    initial_message += "How can I support you in your professional journey today?"
-    
-    # Determine coaching focus based on role
-    coaching_focus = "professional development"
-    if user_data.role:
-        role = user_data.role.lower()
-        if any(x in role for x in ["ceo", "cto", "coo", "chief", "executive"]):
-            coaching_focus = "executive leadership"
-        elif any(x in role for x in ["director", "vp", "vice president", "senior"]):
-            coaching_focus = "senior leadership"
-        elif any(x in role for x in ["manager", "lead", "supervisor"]):
-            coaching_focus = "management and team leadership"
-        elif any(x in role for x in ["founder", "entrepreneur", "owner"]):
-            coaching_focus = "business growth and entrepreneurship"
     
     # Get system prompt and configurations from settings manager
     settings_manager = SettingsManager()
@@ -1370,14 +1526,9 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
     tts_config = await settings_manager.get_tts_config("coach")
     llm_config = await settings_manager.get_llm_config("coach")
     
-    # Personalize system prompt
+    # Personalize the system prompt if user data is available
     if user_data.full_name:
         system_prompt = system_prompt.replace("for the user", f"for {user_data.full_name}")
-    
-    # Add coaching type and focus
-    system_prompt += f"\n\nCurrently, you're acting as a {coaching_type} coach, focusing on {coaching_focus}."
-    if goal:
-        system_prompt += f"\nTheir stated goal is: {goal}"
     
     # Create initial chat context
     initial_ctx = llm.ChatContext().append(
@@ -1385,15 +1536,45 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
         text=system_prompt,
     )
     
-    # Create the voice pipeline agent
+    # Add before_tts_callback to clean up special characters before TTS processing
+    async def before_tts_callback(assistant: VoicePipelineAgent, text: str) -> str:
+        """Clean up text before sending to TTS for better pronunciation"""
+        # Remove markdown formatting (bold, italic, etc.)
+        text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # Remove bold (**text**)
+        text = re.sub(r'\*(.*?)\*', r'\1', text)      # Remove italic (*text*)
+        text = re.sub(r'__(.*?)__', r'\1', text)      # Remove underline (__text__)
+        text = re.sub(r'```(.*?)```', r'\1', text, flags=re.DOTALL)  # Remove code blocks
+        
+        # Remove other special characters that don't work well in voice
+        text = re.sub(r'[#`~>]', '', text)           # Remove specific special chars
+        text = re.sub(r'\n+', ' ', text)             # Replace multiple newlines with space
+        text = re.sub(r'\s+', ' ', text)             # Replace multiple spaces with single space
+        
+        # Fix pronunciation of technical terms
+        replacements = {
+            "DISC": "D I S C",
+            "LiveKit": "Live Kit",
+            "OYOS": "O Y O S",
+            "API": "A P I",
+            "URL": "U R L"
+        }
+        
+        for term, pronunciation in replacements.items():
+            text = re.sub(r'\b' + re.escape(term) + r'\b', pronunciation, text)
+            
+        return text
+    
+    # Variable to track if agent creation was successful
+    agent = None
+    
     try:
         # Set up TTS configuration based on settings
         tts_provider = tts_config.get("provider", "cartesia")
         if tts_provider == "cartesia":
             tts = cartesia_tts.TTS(
                 model=tts_config.get("model", "sonic"),
-                voice=tts_config.get("voice_id", "7e19344f-9f17-47d7-a13a-4366ad06ebf3"),
-                emotion=tts_config.get("emotion", ["curiosity", "positivity:high"]),
+                voice=tts_config.get("voice_id", "57b6bf63-c7a1-4ffc-8e10-23bf45152dd6"),
+                emotion=tts_config.get("emotion", ["empathy:high", "positivity:high"]),
                 speed=tts_config.get("speed", "normal")
             )
         else:
@@ -1401,9 +1582,8 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
             logger.warning(f"Unsupported TTS provider: {tts_provider}. Using Cartesia as fallback.")
             tts = cartesia_tts.TTS(
                 model="sonic",
-                voice="7e19344f-9f17-47d7-a13a-4366ad06ebf3",
-                emotion=["curiosity", "positivity:high"],
-                speed="normal"
+                voice="57b6bf63-c7a1-4ffc-8e10-23bf45152dd6",
+                emotion=["empathy:high", "positivity:high"]
             )
         
         # Set up LLM based on settings
@@ -1411,26 +1591,24 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
         if llm_provider == "openai":
             llm_model = openai.LLM(
                 model=llm_config.get("model", "gpt-4o-mini"),
-                temperature=llm_config.get("temperature", 0.7),
-                max_tokens=llm_config.get("max_tokens", 1024)
+                temperature=llm_config.get("temperature", 0.7)
             )
             logger.info("Using OpenAI for LLM")
         elif llm_provider == "cerebras":
             try:
                 llm_model = openai.LLM.with_cerebras(
                     model=llm_config.get("model", "llama-3.3-70b"),
-                    temperature=llm_config.get("temperature", 0.7),
-                    max_tokens=llm_config.get("max_tokens", 1024)
+                    temperature=llm_config.get("temperature", 0.7)
                 )
                 logger.info("Using Cerebras for LLM")
             except Exception as e:
                 # Fallback to specified fallback or OpenAI
+                fallback_provider = llm_config.get("fallback_provider", "openai")
                 fallback_model = llm_config.get("fallback_model", "gpt-4o-mini")
-                logger.warning(f"Failed to initialize Cerebras LLM: {e}, falling back to OpenAI")
+                logger.warning(f"Failed to initialize Cerebras LLM: {e}, falling back to {fallback_provider}")
                 llm_model = openai.LLM(
                     model=fallback_model,
-                    temperature=llm_config.get("temperature", 0.7),
-                    max_tokens=llm_config.get("max_tokens", 1024)
+                    temperature=llm_config.get("temperature", 0.7)
                 )
         else:
             # Fallback to OpenAI if provider not recognized
@@ -1450,32 +1628,48 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
             tts=tts,
             llm=llm_model,
             chat_ctx=initial_ctx,
-            before_llm_cb=coach_agent.before_llm_callback,
+            fnc_ctx=function_context,
             turn_detector=ctx.proc.userdata.get("turn_detector")
         )
+        
+        # Make sure we set the callback even in the fallback case
+        agent.before_tts_cb = before_tts_callback
     except Exception as e:
         logger.error(f"Failed to create voice pipeline agent: {e}")
         # Fallback to basic configuration
-        agent = VoicePipelineAgent(
-            vad=ctx.proc.userdata.get("vad", silero.VAD.load()),
-            stt=deepgram.STT(
-                model="nova-2-general",
-                interim_results=True,
-                smart_format=True,
-                punctuate=True,
-                language="en-US",
-            ),
-            tts=cartesia_tts.TTS(
-                model="sonic",
-                voice="7e19344f-9f17-47d7-a13a-4366ad06ebf3",
-                emotion=["curiosity", "positivity:high"],
-                speed="normal"
-            ),
-            llm=openai.LLM(model="gpt-4o-mini"),
-            chat_ctx=initial_ctx,
-            before_llm_cb=coach_agent.before_llm_callback,
-            turn_detector=ctx.proc.userdata.get("turn_detector")
-        )
+        try:
+            agent = VoicePipelineAgent(
+                vad=ctx.proc.userdata.get("vad", silero.VAD.load()),
+                stt=deepgram.STT(
+                    model="nova-2-general",
+                    interim_results=True,
+                    smart_format=True,
+                    punctuate=True,
+                    language="en-US",
+                ),
+                tts=cartesia_tts.TTS(
+                    model="sonic",
+                    voice="57b6bf63-c7a1-4ffc-8e10-23bf45152dd6",
+                    emotion=["empathy:high", "positivity:high"]
+                ),
+                llm=openai.LLM(model="gpt-4o-mini"),
+                chat_ctx=initial_ctx,
+                fnc_ctx=function_context,
+                turn_detector=ctx.proc.userdata.get("turn_detector")
+            )
+            
+            # Make sure we set the callback even in the fallback case
+            agent.before_tts_cb = before_tts_callback
+        except Exception as e:
+            logger.error(f"Failed to create fallback agent: {e}")
+            ctx.error = f"Failed to create agent: {e}"
+            return
+    
+    # Safety check
+    if agent is None:
+        logger.error("Failed to create agent - agent is None")
+        ctx.error = "Failed to create agent - agent is None"
+        return
     
     # Set up metrics collection
     usage_collector = metrics.UsageCollector()
@@ -1511,27 +1705,20 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
         except Exception as e:
             logger.error(f"Error in agent_speech_committed: {e}")
     
-    # Add process conversation to shutdown callbacks
-    async def end_of_session():
-        # Process conversation for memory and goal storage
-        await coach_agent.process_conversation()
-        
-        # Log final usage
-        summary = usage_collector.get_summary()
-        logger.info(f"Coach session usage summary: {summary}")
-    
-    ctx.add_shutdown_callback(end_of_session)
-    
     # Start the agent
-    agent.start(ctx.room, participant)
+    try:
+        await agent.start(ctx.room, participant)
+        # Send initial message
+        await agent.send_message(initial_message)
+    except Exception as e:
+        logger.error(f"Error starting agent or sending initial message: {e}")
+        ctx.error = f"Error starting agent: {e}"
+        return
     
-    # Send initial greeting
-    await agent.say(initial_message, allow_interruptions=True)
-    
-    # Set up auto-disconnect after timeout (longer for coaching)
+    # Set up auto-disconnect after timeout
     async def disconnect_after_timeout():
         try:
-            await asyncio.sleep(1800)  # 30 minutes timeout
+            await asyncio.sleep(3600)  # 60 minutes timeout
             if ctx.room.connection_state == rtc.ConnectionState.CONN_CONNECTED:
                 logger.info("Disconnecting after timeout")
                 await ctx.room.disconnect()
@@ -1543,6 +1730,10 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
     # Wait for disconnection
     while ctx.room.connection_state == rtc.ConnectionState.CONN_CONNECTED:
         await asyncio.sleep(1)
+    
+    # Log usage summary
+    summary = usage_collector.get_summary()
+    logger.info(f"Coaching session usage summary: {summary}")
 
 if __name__ == "__main__":
     # Run the LiveKit agent

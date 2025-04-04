@@ -1,5 +1,4 @@
 # Build stage
-# Note: Docker uses standard Python environment, not Conda which is used for local development
 FROM python:3.10-slim as builder
 
 WORKDIR /app
@@ -42,9 +41,7 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy only necessary files
-COPY oyos_coach_disc_agent.py .
-COPY download_models.py .
-COPY setup_supabase.py .
+COPY nhs_agents.py .
 
 # Create necessary directories
 RUN mkdir -p ./data
@@ -57,21 +54,14 @@ ENV PYTHONUNBUFFERED=1
 
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD ps aux | grep python | grep oyos_coach_disc_agent.py || exit 1
+  CMD ps aux | grep python | grep nhs_agents.py || exit 1
 
 # Create startup script
 RUN echo '#!/bin/bash\n\
 echo "Downloading required models (if not already downloaded)..."\n\
-python download_models.py || echo "WARNING: Model download failed, continuing anyway"\n\
-\n\
-# Setup Supabase tables if credentials are provided\n\
-if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then\n\
-    echo "Setting up Supabase tables..."\n\
-    python setup_supabase.py --url "$SUPABASE_URL" --key "$SUPABASE_KEY" || echo "WARNING: Supabase setup failed, continuing anyway"\n\
-fi\n\
-\n\
-echo "Starting OYOS Voice AI Agent..."\n\
-exec python oyos_coach_disc_agent.py start' > /app/start.sh && \
+python nhs_agents.py download-files || echo "WARNING: Model download failed, continuing anyway"\n\
+echo "Starting NHS Virtual Assistant..."\n\
+exec python nhs_agents.py start' > /app/start.sh && \
     chmod +x /app/start.sh
 
 # Run the startup script
