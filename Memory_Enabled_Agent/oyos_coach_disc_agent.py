@@ -199,7 +199,7 @@ Remember:
 
             "coach": """You're an experienced professional coach with a warm, thoughtful style. You've coached hundreds of people through career transitions, leadership challenges, team dynamics, and personal growth. Think of yourself as that trusted mentor who asks just the right questions to help people find their own answers.
 
-Speak naturally, as if having coffee with a colleague you respect. Use casual language like "Let's explore that a bit" or "I'm wondering what would happen if..." rather than formal coaching terminology. Your goal is conversation, not interrogation.
+Speak naturally, as if having coffee with a colleague you respect. Use casual language like "Let's explore that a bit" or "I'm wondering what would happen if..." rather than formal coaching terminology. Your goal is conversation, not interrogation. Never produce special characters in your response as its voice conversations.
 
 When coaching, you:
 - Listen first, speak second - give people room to process their thoughts
@@ -679,7 +679,7 @@ class GoalsManager:
                 logger.warning(f"Failed to update goal {goal_id}")
                 
             return success
-            
+        
         except Exception as e:
             logger.error(f"Error updating goal: {e}")
             return False
@@ -718,7 +718,7 @@ class GoalsManager:
             else:
                 logger.info(f"No active goals found for {self.user_email}")
                 return []
-                
+            
         except Exception as e:
             logger.error(f"Error retrieving goals: {e}")
             return []
@@ -766,7 +766,7 @@ class CoachingFunctions(llm.FunctionContext):
         """Record a new goal for the user"""
         logger.info(f"Recording goal: {description} (type: {goal_type})")
         return f"I've recorded your goal to {description}. We'll track your progress on this {goal_type} goal in our sessions."
-
+    
     @llm.ai_callable(
         description="Mark a previously recorded goal as complete."
     )
@@ -782,7 +782,7 @@ class CoachingFunctions(llm.FunctionContext):
         """Mark a goal as complete"""
         logger.info(f"Marking goal as complete: {goal_description}")
         return f"Congratulations on completing your goal to {goal_description}! It's important to celebrate these accomplishments."
-
+    
     @llm.ai_callable(
         description="Record an action item or next step that the user commits to."
     )
@@ -827,7 +827,7 @@ class ProfessionalCoachAgent:
         self.conversation_history = []
         
         logger.info(f"Professional coach agent initialized for {user_data}")
-        
+    
     async def before_llm_callback(self, assistant: VoicePipelineAgent, chat_ctx: llm.ChatContext):
         """Process context before sending to LLM"""
         try:
@@ -1000,6 +1000,9 @@ class ProfessionalCoachAgent:
             # Extract goals using OpenAI
             await self._extract_goals_with_ai()
             
+            # Extract insights, facts, and knowledge about the user
+            await self._extract_user_insights()
+            
         except Exception as e:
             logger.error(f"Error processing conversation: {e}")
     
@@ -1045,6 +1048,59 @@ class ProfessionalCoachAgent:
             
         except Exception as e:
             logger.error(f"Error extracting goals with AI: {e}")
+    
+    async def _extract_user_insights(self):
+        """Extract insights, facts, and knowledge about the user from the conversation"""
+        try:
+            # Format the conversation for analysis
+            conversation_text = ""
+            for message in self.conversation_history:
+                prefix = "User" if message["role"] == "user" else "Coach"
+                conversation_text += f"{prefix}: {message['text']}\n\n"
+            
+            # Use OpenAI to extract insights
+            openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+            response = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": """You are an AI that extracts meaningful insights about a person from coaching conversations. 
+                    Identify key facts, preferences, challenges, strengths, goals, and other important information about the user.
+                    For each insight, provide a category (preference, strength, challenge, value, interest, goal, fact).
+                    Return a JSON array of objects with 'content' and 'category' fields.
+                    Make each insight detailed enough to be useful in future conversations but concise enough to be easily retrieved.
+                    Only extract insights that are clearly supported by what the user has shared."""},
+                    {"role": "user", "content": conversation_text}
+                ],
+                response_format={"type": "json_object"}
+            )
+            
+            # Parse the response
+            result = json.loads(response.choices[0].message.content)
+            
+            # Add insights to memory
+            if "insights" in result and isinstance(result["insights"], list):
+                for insight in result["insights"]:
+                    content = insight.get("content")
+                    category = insight.get("category", "general")
+                    
+                    if content:
+                        # Store in vector memory
+                        self.memory.add_to_memory(
+                            text=content,
+                            metadata={
+                                "type": "user_insight", 
+                                "category": category,
+                                "user_id": self.user_data.user_id,
+                                "timestamp": datetime.datetime.now().isoformat()
+                            }
+                        )
+                
+                logger.info(f"Extracted and saved {len(result['insights'])} user insights")
+            else:
+                logger.info("No insights extracted from conversation")
+            
+        except Exception as e:
+            logger.error(f"Error extracting user insights: {e}")
 
 class DISCAssessmentAgent:
     """DISC assessment voice agent"""
@@ -1053,6 +1109,10 @@ class DISCAssessmentAgent:
         """Initialize with user data"""
         # Store user data
         self.user_data = user_data
+        
+        # Initialize vector memory with user-specific collection
+        collection_name = f"disc_{user_data.user_id.replace('-', '_')}"
+        self.memory = VectorMemory(collection_name)
         
         # Track conversation history
         self.conversation_history = []
@@ -1103,11 +1163,83 @@ class DISCAssessmentAgent:
                 prefix = "User" if message["role"] == "user" else "DISC Specialist"
                 conversation_text += f"{prefix}: {message['text']}\n\n"
             
+            # Extract DISC traits and personality insights
+            await self._extract_disc_traits(conversation_text)
+            
             # Send to API
             await self._send_to_disc_api(self.user_data.email, conversation_text)
             
         except Exception as e:
             logger.error(f"Error processing DISC summary: {e}")
+    
+    async def _extract_disc_traits(self, conversation_text: str):
+        """Extract DISC traits and personality insights from the conversation"""
+        try:
+            # Use OpenAI to extract DISC traits
+            openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+            response = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": """You are an AI that specializes in DISC personality assessment. 
+                    Analyze this conversation and extract:
+                    1. The user's likely DISC profile (primary and secondary traits)
+                    2. Key behavioral traits and communication preferences
+                    3. Work style insights and teamwork preferences
+                    4. Potential strengths and challenges based on DISC analysis
+                    
+                    Return a JSON object with:
+                    - disc_profile: Object with primary and secondary traits and their scores (0-100)
+                    - behavioral_traits: Array of insights about behavior and communication
+                    - work_preferences: Array of insights about work and team preferences
+                    - strengths: Array of potential strengths
+                    - challenges: Array of potential challenges
+                    
+                    Make insights specific and evidence-based from the conversation."""},
+                    {"role": "user", "content": conversation_text}
+                ],
+                response_format={"type": "json_object"}
+            )
+            
+            # Parse the response
+            result = json.loads(response.choices[0].message.content)
+            
+            # Store the complete DISC analysis in memory
+            self.memory.add_to_memory(
+                text=json.dumps(result, indent=2),
+                metadata={
+                    "type": "disc_analysis", 
+                    "user_id": self.user_data.user_id,
+                    "timestamp": datetime.datetime.now().isoformat()
+                }
+            )
+            
+            # Also store individual insights for easier retrieval
+            categories = {
+                "behavioral_traits": "behavior",
+                "work_preferences": "work_style",
+                "strengths": "strength",
+                "challenges": "challenge"
+            }
+            
+            insights_count = 0
+            for key, category in categories.items():
+                if key in result and isinstance(result[key], list):
+                    for insight in result[key]:
+                        self.memory.add_to_memory(
+                            text=insight,
+                            metadata={
+                                "type": "disc_insight", 
+                                "category": category,
+                                "user_id": self.user_data.user_id,
+                                "timestamp": datetime.datetime.now().isoformat()
+                            }
+                        )
+                        insights_count += 1
+            
+            logger.info(f"Extracted and saved DISC analysis with {insights_count} insights")
+            
+        except Exception as e:
+            logger.error(f"Error extracting DISC traits: {e}")
     
     async def _send_to_disc_api(self, user_email: str, conversation_history: str):
         """Send the conversation transcript to the DISC summary API for processing"""
@@ -1213,7 +1345,7 @@ async def entrypoint(ctx: JobContext):
         logger.error(f"Room name '{ctx.room.name}' does not have a required suffix")
         ctx.error = ROOM_VALIDATION_ERROR
         return
-        
+    
     logger.info(f"Determined agent type: {agent_type}")
     
     # Connect to the room
@@ -1263,14 +1395,6 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
     # Initialize function context
     function_context = DISCAssessmentFunctions()
     
-    # Create greeting based on user data
-    greeting = f"Hi {user_data.full_name}!" if user_data.full_name else "Hi there!"
-    initial_message = (
-        f"{greeting} I'm Jenni, a DISC personality assessment specialist at OYOS. "
-        "I'll be helping you understand your work style through a brief assessment. "
-        f"{'How are you today?' if user_data.full_name else 'Could you start by telling me your name?'}"
-    )
-    
     # Get system prompt and configurations from settings manager
     settings_manager = SettingsManager()
     system_prompt = await settings_manager.get_system_prompt("disc")
@@ -1290,6 +1414,16 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
     # Add before_tts_callback to clean up special characters before TTS processing
     async def before_tts_callback(assistant: VoicePipelineAgent, text: str) -> str:
         """Clean up text before sending to TTS for better pronunciation"""
+        # Check if text is actually a string
+        if not isinstance(text, str):
+            logger.warning(f"before_tts_callback received non-string input: {type(text)}")
+            # Try to convert to string if possible
+            try:
+                text = str(text)
+            except Exception as e:
+                logger.error(f"Failed to convert before_tts_callback input to string: {e}")
+                return "" if text is None else str(text)
+                
         # Remove markdown formatting (bold, italic, etc.)
         text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # Remove bold (**text**)
         text = re.sub(r'\*(.*?)\*', r'\1', text)      # Remove italic (*text*)
@@ -1314,6 +1448,49 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
             text = re.sub(r'\b' + re.escape(term) + r'\b', pronunciation, text)
             
         return text
+    
+    # Create a personalized welcome message based on user data and memory
+    async def create_welcome_message() -> str:
+        # Check if this user has previous conversations (returning user)
+        has_previous_disc_assessment = False
+        
+        try:
+            # Check memory for previous DISC assessments
+            if hasattr(disc_agent, 'memory') and disc_agent.memory:
+                memory_context = disc_agent.memory.query_memory("previous DISC assessment")
+                has_previous_disc_assessment = bool(memory_context)
+        except Exception as e:
+            logger.error(f"Error checking memory for welcome message: {e}")
+        
+        # Create greeting with name if available
+        greeting = f"Hi {user_data.full_name}" if user_data.full_name else "Hi there"
+        
+        # First-time assessment messages
+        first_time_messages = [
+            f"{greeting}! I'm Jenni, a DISC personality assessment specialist at OYOS. I'll be helping you understand your work style through a brief assessment. " + ("How are you today?" if user_data.full_name else "Could you start by telling me your name?"),
+            f"{greeting}! I'm Jenni with OYOS. Today I'll be guiding you through a DISC personality assessment to help identify your natural work style. " + ("How are you doing today?" if user_data.full_name else "May I start by asking your name?"),
+            f"{greeting}! I'm Jenni, and I'll be conducting your DISC assessment today. This will help us understand your unique approach to work situations. " + ("How's your day going so far?" if user_data.full_name else "Before we begin, could you tell me your name?")
+        ]
+        
+        # Returning user messages
+        returning_messages = [
+            f"{greeting}! It's Jenni again from OYOS. I see you're back for another DISC assessment. Has your work situation changed since we last spoke?",
+            f"{greeting}! Welcome back to our DISC assessment. I'm Jenni from OYOS. I'm curious to know if you've noticed any changes in your work style since your previous assessment?",
+            f"{greeting}! Jenni here from OYOS. It's good to see you back for another DISC assessment. Are you looking to compare results with your previous assessment?"
+        ]
+        
+        # Select base message
+        import random
+        if has_previous_disc_assessment:
+            base_message = random.choice(returning_messages)
+        else:
+            base_message = random.choice(first_time_messages)
+            
+            # Add additional context if available
+            if user_data.role:
+                base_message += f" I understand your role is {user_data.role}. That will provide helpful context for your assessment."
+                
+        return base_message
     
     # Variable to track if agent creation was successful
     agent = None
@@ -1380,11 +1557,9 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
             llm=llm_model,
             chat_ctx=initial_ctx,
             fnc_ctx=function_context,
-            turn_detector=ctx.proc.userdata.get("turn_detector")
+            turn_detector=ctx.proc.userdata.get("turn_detector"),
+            before_llm_cb=disc_agent.before_llm_callback
         )
-        
-        # Make sure we set the callback even in the fallback case
-        agent.before_tts_cb = before_tts_callback
     except Exception as e:
         logger.error(f"Failed to create voice pipeline agent: {e}")
         # Fallback to basic configuration
@@ -1406,11 +1581,9 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
                 llm=openai.LLM(model="gpt-4o-mini"),
                 chat_ctx=initial_ctx,
                 fnc_ctx=function_context,
-                turn_detector=ctx.proc.userdata.get("turn_detector")
+                turn_detector=ctx.proc.userdata.get("turn_detector"),
+                before_llm_cb=disc_agent.before_llm_callback
             )
-            
-            # Make sure we set the callback even in the fallback case
-            agent.before_tts_cb = before_tts_callback
         except Exception as e:
             logger.error(f"Failed to create fallback agent: {e}")
             ctx.error = f"Failed to create agent: {e}"
@@ -1471,9 +1644,11 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
     
     # Start the agent
     try:
-        await agent.start(ctx.room, participant)
-        # Send initial message
-        await agent.send_message(initial_message)
+        agent.start(ctx.room, participant)
+        
+        # Create and send a dynamic, personalized initial message
+        initial_message = await create_welcome_message()
+        await agent.say(initial_message, allow_interruptions=True)
     except Exception as e:
         logger.error(f"Error starting agent or sending initial message: {e}")
         ctx.error = f"Error starting agent: {e}"
@@ -1495,12 +1670,52 @@ async def setup_disc_agent(ctx: JobContext, participant: rtc.Participant, user_d
     while ctx.room.connection_state == rtc.ConnectionState.CONN_CONNECTED:
         await asyncio.sleep(1)
     
-    # Process any final tasks
-    await disc_agent.process_disc_summary()
-    
     # Log usage summary
     summary = usage_collector.get_summary()
     logger.info(f"DISC session usage summary: {summary}")
+    
+    # Process conversation at end of session
+    async def end_of_session():
+        """Process the conversation and extract insights when the session ends"""
+        logger.info("Running end of session processing for DISC agent")
+        
+        # Process the DISC summary and send to API
+        await disc_agent.process_disc_summary()
+        
+        # Log conversation summary
+        user_messages = [msg for msg in disc_agent.conversation_history if msg["role"] == "user"]
+        agent_messages = [msg for msg in disc_agent.conversation_history if msg["role"] == "assistant"]
+        
+        if user_messages:
+            # Calculate conversation duration
+            conversation_duration = None
+            if len(disc_agent.conversation_history) >= 2:
+                first_msg_time = datetime.datetime.fromisoformat(disc_agent.conversation_history[0]["timestamp"])
+                last_msg_time = datetime.datetime.fromisoformat(disc_agent.conversation_history[-1]["timestamp"])
+                conversation_duration = (last_msg_time - first_msg_time).total_seconds()
+            
+            # Log summary
+            logger.info("=" * 50)
+            logger.info("DISC ASSESSMENT SUMMARY")
+            logger.info("=" * 50)
+            logger.info(f"User: {user_data.full_name if user_data.full_name else user_data.user_id}")
+            logger.info(f"Total messages: {len(disc_agent.conversation_history)}")
+            logger.info(f"User messages: {len(user_messages)}")
+            logger.info(f"Agent messages: {len(agent_messages)}")
+            
+            if conversation_duration:
+                minutes = int(conversation_duration // 60)
+                seconds = int(conversation_duration % 60)
+                logger.info(f"Conversation duration: {minutes}m {seconds}s")
+            
+            logger.info("=" * 50)
+        
+        # Log usage metrics
+        summary = usage_collector.get_summary()
+        logger.info(f"Usage: {summary}")
+    
+    # Add to shutdown callbacks
+    ctx.add_shutdown_callback(end_of_session)
 
 async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_data: UserData):
     """Set up the professional coach agent"""
@@ -1511,14 +1726,6 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
     
     # Initialize function context
     function_context = CoachingFunctions()
-    
-    # Create greeting based on user data
-    greeting = f"Hi {user_data.full_name}!" if user_data.full_name else "Hi there!"
-    initial_message = (
-        f"{greeting} I'm Jenni, your professional coach at OYOS. "
-        "I'm here to support your personal and professional development. "
-        f"{'How are you today?' if user_data.full_name else 'Could you start by telling me your name?'}"
-    )
     
     # Get system prompt and configurations from settings manager
     settings_manager = SettingsManager()
@@ -1539,6 +1746,16 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
     # Add before_tts_callback to clean up special characters before TTS processing
     async def before_tts_callback(assistant: VoicePipelineAgent, text: str) -> str:
         """Clean up text before sending to TTS for better pronunciation"""
+        # Check if text is actually a string
+        if not isinstance(text, str):
+            logger.warning(f"before_tts_callback received non-string input: {type(text)}")
+            # Try to convert to string if possible
+            try:
+                text = str(text)
+            except Exception as e:
+                logger.error(f"Failed to convert before_tts_callback input to string: {e}")
+                return "" if text is None else str(text)
+                
         # Remove markdown formatting (bold, italic, etc.)
         text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # Remove bold (**text**)
         text = re.sub(r'\*(.*?)\*', r'\1', text)      # Remove italic (*text*)
@@ -1563,6 +1780,78 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
             text = re.sub(r'\b' + re.escape(term) + r'\b', pronunciation, text)
             
         return text
+    
+    # Create a personalized welcome message based on user data and memory
+    async def create_welcome_message() -> str:
+        # Check if this user has previous conversations (returning user)
+        has_memory = False
+        active_goals = []
+        previous_topics = []
+        
+        try:
+            # Attempt to get active goals if user has email
+            if user_data.email:
+                active_goals = await coach_agent.goals_manager.get_active_goals() if coach_agent.goals_manager else []
+                has_memory = len(active_goals) > 0
+            
+            # Check memory for previous conversations
+            if hasattr(coach_agent, 'memory') and coach_agent.memory:
+                memory_context = coach_agent.memory.query_memory("previous coaching session")
+                has_memory = has_memory or bool(memory_context)
+                
+                # Extract possible conversation topics from memory
+                if memory_context:
+                    topics = re.findall(r'(?:discussed|talked about|mentioned|working on) ([\w\s]+)', memory_context)
+                    previous_topics = [topic.strip() for topic in topics if len(topic.strip()) > 3]
+        except Exception as e:
+            logger.error(f"Error checking memory for welcome message: {e}")
+        
+        # Create greeting with name if available
+        greeting = f"Hi {user_data.full_name}" if user_data.full_name else "Hi there"
+        
+        # First-time user messages
+        first_time_messages = [
+            f"{greeting}! I'm Jenni, your professional coach at OYOS. I'm here to support your personal and professional development. How are you today?",
+            f"{greeting}! I'm Jenni, your coach with OYOS. It's great to meet you. I'm looking forward to our conversation today. How are you feeling?",
+            f"{greeting}! I'm Jenni, and I'll be your coach today. I'm excited to learn more about you and see how I can help. How are you doing?"
+        ]
+        
+        # Returning user messages
+        returning_messages = [
+            f"{greeting}! It's great to see you again. How have things been since our last conversation?",
+            f"{greeting}! Welcome back. I'm looking forward to continuing our work together. How have you been?",
+            f"{greeting}! It's good to connect with you again. What's been on your mind since we last spoke?"
+        ]
+        
+        # Select base message
+        if has_memory:
+            # For returning users
+            import random
+            base_message = random.choice(returning_messages)
+            
+            # Add reference to active goals if available
+            if active_goals:
+                goal = active_goals[0].get("description", "")
+                if goal:
+                    base_message += f" Last time, we discussed your goal to {goal}. Have you made any progress on that?"
+            
+            # Or reference previous conversation topics
+            elif previous_topics:
+                topic = previous_topics[0]
+                base_message += f" Last time, we talked about {topic}. I'd love to hear how that's been going."
+        else:
+            # For first-time users
+            import random
+            base_message = random.choice(first_time_messages)
+            
+            # If user has a specified coaching type or goal, acknowledge it
+            if user_data.coaching_type:
+                base_message += f" I understand you're interested in {user_data.coaching_type} coaching."
+            
+            if user_data.goal:
+                base_message += f" I see your goal is to {user_data.goal}. That's a great focus for us to explore together."
+        
+        return base_message
     
     # Variable to track if agent creation was successful
     agent = None
@@ -1629,11 +1918,10 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
             llm=llm_model,
             chat_ctx=initial_ctx,
             fnc_ctx=function_context,
-            turn_detector=ctx.proc.userdata.get("turn_detector")
+            turn_detector=ctx.proc.userdata.get("turn_detector"),
+            before_llm_cb=coach_agent.before_llm_callback,
+            before_tts_cb=before_tts_callback
         )
-        
-        # Make sure we set the callback even in the fallback case
-        agent.before_tts_cb = before_tts_callback
     except Exception as e:
         logger.error(f"Failed to create voice pipeline agent: {e}")
         # Fallback to basic configuration
@@ -1655,11 +1943,10 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
                 llm=openai.LLM(model="gpt-4o-mini"),
                 chat_ctx=initial_ctx,
                 fnc_ctx=function_context,
-                turn_detector=ctx.proc.userdata.get("turn_detector")
+                turn_detector=ctx.proc.userdata.get("turn_detector"),
+                before_llm_cb=coach_agent.before_llm_callback,
+                before_tts_cb=before_tts_callback
             )
-            
-            # Make sure we set the callback even in the fallback case
-            agent.before_tts_cb = before_tts_callback
         except Exception as e:
             logger.error(f"Failed to create fallback agent: {e}")
             ctx.error = f"Failed to create agent: {e}"
@@ -1707,9 +1994,11 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
     
     # Start the agent
     try:
-        await agent.start(ctx.room, participant)
-        # Send initial message
-        await agent.send_message(initial_message)
+        agent.start(ctx.room, participant)
+        
+        # Create and send a dynamic, personalized initial message
+        initial_message = await create_welcome_message()
+        await agent.say(initial_message, allow_interruptions=True)
     except Exception as e:
         logger.error(f"Error starting agent or sending initial message: {e}")
         ctx.error = f"Error starting agent: {e}"
@@ -1734,6 +2023,49 @@ async def setup_coach_agent(ctx: JobContext, participant: rtc.Participant, user_
     # Log usage summary
     summary = usage_collector.get_summary()
     logger.info(f"Coaching session usage summary: {summary}")
+    
+    # Process conversation at end of session
+    async def end_of_session():
+        """Process the conversation and extract insights when the session ends"""
+        logger.info("Running end of session processing for coaching agent")
+        
+        # Process conversation to extract insights and goals
+        await coach_agent.process_conversation()
+        
+        # Log conversation summary
+        user_messages = [msg for msg in coach_agent.conversation_history if msg["role"] == "user"]
+        agent_messages = [msg for msg in coach_agent.conversation_history if msg["role"] == "assistant"]
+        
+        if user_messages:
+            # Calculate conversation duration
+            conversation_duration = None
+            if len(coach_agent.conversation_history) >= 2:
+                first_msg_time = datetime.datetime.fromisoformat(coach_agent.conversation_history[0]["timestamp"])
+                last_msg_time = datetime.datetime.fromisoformat(coach_agent.conversation_history[-1]["timestamp"])
+                conversation_duration = (last_msg_time - first_msg_time).total_seconds()
+            
+            # Log summary
+            logger.info("=" * 50)
+            logger.info("COACHING SESSION SUMMARY")
+            logger.info("=" * 50)
+            logger.info(f"User: {user_data.full_name if user_data.full_name else user_data.user_id}")
+            logger.info(f"Total messages: {len(coach_agent.conversation_history)}")
+            logger.info(f"User messages: {len(user_messages)}")
+            logger.info(f"Agent messages: {len(agent_messages)}")
+            
+            if conversation_duration:
+                minutes = int(conversation_duration // 60)
+                seconds = int(conversation_duration % 60)
+                logger.info(f"Conversation duration: {minutes}m {seconds}s")
+            
+            logger.info("=" * 50)
+        
+        # Log usage metrics
+        summary = usage_collector.get_summary()
+        logger.info(f"Usage: {summary}")
+    
+    # Add to shutdown callbacks
+    ctx.add_shutdown_callback(end_of_session)
 
 if __name__ == "__main__":
     # Run the LiveKit agent
